@@ -14,6 +14,14 @@ Updates
 
 - The subnet configuration was changed from 192.168.56.X to 192.168.57.X.
 
+- Tested Only with VMWare Workstation 17.6
+
+
+Troubleshooting and Tips
+------------------------
+- disable network adapters for the hypervisor you do NOT use, for example is installing with vmware than disable virtualbox network cards (if exists)
+- Install as non privileged user
+
 
 
 # Detection Lab
