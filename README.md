@@ -1,3 +1,21 @@
+Updates
+-------
+- VMware Workstation was upgraded to version 17.5 to ensure compatibility and access to the latest features.
+
+- The logger virtual machine was upgraded from Ubuntu 20.04 to Ubuntu 24.04.
+
+- All logger servers were updated to the latest available software versions.
+
+- The Domain Controller (DC) virtual machine was upgraded from Windows Server 2016 to Windows Server 2022.
+
+- The Windows Event Forwarding (WEF) virtual machine was upgraded from Windows Server 2016 to Windows Server 2022.
+
+- The Workstation virtual machine was migrated from Windows 10 to Windows 11.
+
+- The subnet configuration was changed from 192.168.56.X to 192.168.57.X.
+
+
+
 # Detection Lab
 ## As of 2023-01-01, DetectionLab is no longer being actively maintained
 ![DetectionLab](./img/DetectionLab.png)
