@@ -1,4 +1,4 @@
-Updates
+##Updates
 -------
 - VMware Workstation was upgraded to version 17.5 to ensure compatibility and access to the latest features.
 
@@ -17,9 +17,9 @@ Updates
 - Tested Only with VMWare Workstation 17.6
 
 
-TLDR; Installation
+##TLDR; Installation
 ------------------
-#download vagrant and install
+###download vagrant and install
 ```
 https://developer.hashicorp.com/vagrant/downloads
 ```
@@ -62,12 +62,13 @@ vagrant up win11
 .\post_build_checks.ps1
 ```
 
-Tips
+##Tips
 ----
 - disable network adapters for the hypervisor you do NOT use, for example is installing with vmware than disable virtualbox network cards (if exists)
 - Install as non privileged user
 
-Troubleshooting
+
+##Troubleshooting
 ---------------
 - Vagrant encountered an unexpected communications error with the Vagrant VMware Utility driver
   - check that vagrant-vmware-utility service is started
@@ -83,7 +84,9 @@ Troubleshooting
 
 
 
-# Detection Lab
+
+
+# Original Detection Lab Readme
 ## As of 2023-01-01, DetectionLab is no longer being actively maintained
 ![DetectionLab](./img/DetectionLab.png)
 
