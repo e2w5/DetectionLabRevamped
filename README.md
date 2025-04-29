@@ -20,7 +20,9 @@ Updates
 TLDR; Installation
 ------------------
 #download vagrant and install
+'''
 https://developer.hashicorp.com/vagrant/downloads
+'''
 
 #install vmware desktop plugin
 vagrant plugin install vagrant-vmware-desktop
