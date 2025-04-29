@@ -20,36 +20,47 @@ Updates
 TLDR; Installation
 ------------------
 #download vagrant and install
-'''
+```
 https://developer.hashicorp.com/vagrant/downloads
-'''
+```
 
 #install vmware desktop plugin
+```
 vagrant plugin install vagrant-vmware-desktop
+```
 
 #download and install vagrant vmware utility
+```
 https://developer.hashicorp.com/vagrant/install/vmware
 net.exe start vagrant-vmware-utility
+```
 
 #disable all network interfaces of unused hypervisor (vmare/virtualbox, the one you dont use)
 
 #clone the repo
+```
 git clone https://github.com/hasamba/DetectionLabRevamped.git
 cd DetectionLabRevamped/Vagrant
+```
 
 #RUN AS ADMIN
+```
 .\prepare.ps1
+```
 
 #DO NOT RUN AS ADMIN
+```
 vagrant up --provider=vmware_desktop
+```
 #or one by one
+```
 vagrant up logger
 vagrant up dc
 vagrant up wef
-vagrant up win10
+vagrant up win11
 
 .\post_build_checks.ps1
-
+```
 
 Tips
 ----
