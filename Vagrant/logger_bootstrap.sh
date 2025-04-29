@@ -283,6 +283,7 @@ download_palantir_osquery_config() {
     cd /opt && git clone https://github.com/palantir/osquery-configuration.git
   fi
 }
+
 install_fleet_import_osquery_config() {
   if [ -d "/opt/fleet" ]; then
     echo "[$(date +%H:%M:%S)]: Fleet is already installed"
@@ -299,36 +300,124 @@ install_fleet_import_osquery_config() {
 
     # Set MySQL username and password, create fleet database
     # MySQL in Ubuntu 24.04 uses a different authentication plugin
-    mysql -uroot -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'fleet';"
-    mysql -uroot -pfleet -e "create database fleet;"
+    # Only try to set password if it hasn't been set
+    mysql -uroot -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'fleet';" || echo "MySQL password may already be set"
+    mysql -uroot -pfleet -e "create database fleet;" || echo "Database may already exist, continuing..."
 
-    # Always download the latest release of Fleet and Fleetctl
-    echo "[$(date +%H:%M:%S)]: Downloading latest Fleet and fleetctl..."
-    curl -s https://api.github.com/repos/fleetdm/fleet/releases/latest | jq '.assets[] | select(.name|match("linux.tar.gz$")) | .browser_download_url' | sed 's/"//g' | grep fleetctl | wget --progress=bar:force -i -
-    curl -s https://api.github.com/repos/fleetdm/fleet/releases/latest | jq '.assets[] | select(.name|match("linux.tar.gz$")) | .browser_download_url' | sed 's/"//g' | grep fleet | grep -v fleetctl | wget --progress=bar:force -i -
+    echo "[$(date +%H:%M:%S)]: Checking GitHub API for Fleet releases..."
+    
+    # Try manually getting a list of releases and picking a specific one
+    RELEASES=$(curl -s "https://api.github.com/repos/fleetdm/fleet/releases")
+    # Extract tags in reverse order (newest first)
+    TAGS=$(echo "$RELEASES" | grep -o '"tag_name": "[^"]*' | cut -d'"' -f4)
+    
+    # Let's try with a specific 4.x version
+    VERSION_TO_TRY="v4.67.2"
+    echo "[$(date +%H:%M:%S)]: Trying Fleet version $VERSION_TO_TRY"
+    
+    # Construct URLs
+    FLEET_URL="https://github.com/fleetdm/fleet/releases/download/$VERSION_TO_TRY/fleet_${VERSION_TO_TRY#v}_linux.tar.gz"
+    FLEETCTL_URL="https://github.com/fleetdm/fleet/releases/download/$VERSION_TO_TRY/fleetctl_${VERSION_TO_TRY#v}_linux.tar.gz"
+    
+    echo "[$(date +%H:%M:%S)]: Testing Fleet download URL: $FLEET_URL"
+    
+    # Test if the URL is valid
+    if curl --output /dev/null --silent --head --fail "$FLEET_URL"; then
+      echo "[$(date +%H:%M:%S)]: Fleet URL is valid, downloading..."
+    else
+      # URL is not valid, try a different approach or version
+      echo "[$(date +%H:%M:%S)]: URL not valid, trying a different approach..."
+      
+      # Get the latest release info and list all assets
+      LATEST_RELEASE=$(curl -s "https://api.github.com/repos/fleetdm/fleet/releases/latest")
+      ALL_ASSETS=$(echo "$LATEST_RELEASE" | grep -o '"browser_download_url": "[^"]*"' | cut -d'"' -f4)
+      
+      # Print all available assets to help debug
+      echo "[$(date +%H:%M:%S)]: Available assets in latest release:"
+      echo "$ALL_ASSETS"
+      
+      # Try to find Linux assets
+      LINUX_ASSETS=$(echo "$ALL_ASSETS" | grep "linux")
+      
+      if [ -n "$LINUX_ASSETS" ]; then
+        # Found Linux assets, try to identify fleet and fleetctl
+        FLEET_URL=$(echo "$LINUX_ASSETS" | grep -v "fleetctl" | head -1)
+        FLEETCTL_URL=$(echo "$LINUX_ASSETS" | grep "fleetctl" | head -1)
+        
+        echo "[$(date +%H:%M:%S)]: Identified Fleet URL: $FLEET_URL"
+        echo "[$(date +%H:%M:%S)]: Identified Fleetctl URL: $FLEETCTL_URL"
+      else
+        # Fallback to manual download
+        echo "[$(date +%H:%M:%S)]: Falling back to manual download method..."
+        # Fetch the release page html and try to parse download links
+        RELEASE_PAGE=$(curl -s "https://github.com/fleetdm/fleet/releases")
+        # Look for Linux download links
+        LINUX_LINKS=$(echo "$RELEASE_PAGE" | grep -o 'href="[^"]*linux[^"]*"' | cut -d'"' -f2)
+        
+        if [ -n "$LINUX_LINKS" ]; then
+          # Convert relative links to absolute
+          FLEET_URL="https://github.com$(echo "$LINUX_LINKS" | grep -v "fleetctl" | head -1)"
+          FLEETCTL_URL="https://github.com$(echo "$LINUX_LINKS" | grep "fleetctl" | head -1)"
+          
+          echo "[$(date +%H:%M:%S)]: Parsed Fleet URL: $FLEET_URL"
+          echo "[$(date +%H:%M:%S)]: Parsed Fleetctl URL: $FLEETCTL_URL"
+        else
+          echo "[$(date +%H:%M:%S)]: ERROR: Could not determine download URLs. Exiting."
+          return 1
+        fi
+      fi
+    fi
+    
+    # Final download attempt
+    echo "[$(date +%H:%M:%S)]: Downloading Fleet from: $FLEET_URL"
+    wget --progress=bar:force -O fleet.tar.gz "$FLEET_URL" || {
+      echo "[$(date +%H:%M:%S)]: ERROR: Fleet download failed."
+      return 1
+    }
+    
+    echo "[$(date +%H:%M:%S)]: Downloading Fleetctl from: $FLEETCTL_URL"
+    wget --progress=bar:force -O fleetctl.tar.gz "$FLEETCTL_URL" || {
+      echo "[$(date +%H:%M:%S)]: ERROR: Fleetctl download failed."
+      return 1
+    }
     
     # Check if the files were downloaded correctly
-    if [ ! -f fleet_*.tar.gz ] || [ ! -f fleetctl_*.tar.gz ]; then
+    if [ ! -f fleet.tar.gz ] || [ ! -f fleetctl.tar.gz ]; then
       echo "[$(date +%H:%M:%S)]: ERROR: Could not download Fleet files. Check connectivity to GitHub."
       return 1
     fi
     
+    # Create directories for extraction
+    mkdir -p fleet_extracted fleetctl_extracted
+    
     echo "[$(date +%H:%M:%S)]: Extracting Fleet files..."
-    tar -xvf fleet_*.tar.gz
-    tar -xvf fleetctl_*.tar.gz
+    tar -xzf fleet.tar.gz -C fleet_extracted || {
+      echo "[$(date +%H:%M:%S)]: ERROR: Could not extract fleet.tar.gz"
+      return 1
+    }
     
-    # Verify the extraction and locate the binaries
-    FLEETCTL_DIR=$(ls -d fleetctl_* 2>/dev/null)
-    FLEET_DIR=$(ls -d fleet_* 2>/dev/null)
+    tar -xzf fleetctl.tar.gz -C fleetctl_extracted || {
+      echo "[$(date +%H:%M:%S)]: ERROR: Could not extract fleetctl.tar.gz"
+      return 1
+    }
     
-    if [ -z "$FLEETCTL_DIR" ] || [ -z "$FLEET_DIR" ]; then
-      echo "[$(date +%H:%M:%S)]: ERROR: Fleet extraction failed. Archive contents may be corrupt."
+    # Find the fleet and fleetctl binaries (they might be in subdirectories)
+    FLEET_BIN=$(find fleet_extracted -name fleet -type f | head -1)
+    FLEETCTL_BIN=$(find fleetctl_extracted -name fleetctl -type f | head -1)
+    
+    if [ -z "$FLEET_BIN" ] || [ -z "$FLEETCTL_BIN" ]; then
+      echo "[$(date +%H:%M:%S)]: ERROR: Could not find binaries in extracted archives."
+      # Show the structure to help diagnose
+      echo "Contents of fleet_extracted:"
+      find fleet_extracted -type f | sort
+      echo "Contents of fleetctl_extracted:"
+      find fleetctl_extracted -type f | sort
       return 1
     fi
     
     echo "[$(date +%H:%M:%S)]: Installing Fleet binaries..."
-    cp ${FLEETCTL_DIR}/fleetctl /usr/local/bin/fleetctl && chmod +x /usr/local/bin/fleetctl
-    cp ${FLEET_DIR}/fleet /usr/local/bin/fleet && chmod +x /usr/local/bin/fleet
+    cp "$FLEET_BIN" /usr/local/bin/fleet && chmod +x /usr/local/bin/fleet
+    cp "$FLEETCTL_BIN" /usr/local/bin/fleetctl && chmod +x /usr/local/bin/fleetctl
     
     # Verify the installation
     if [ ! -x /usr/local/bin/fleetctl ] || [ ! -x /usr/local/bin/fleet ]; then
@@ -336,6 +425,7 @@ install_fleet_import_osquery_config() {
       return 1
     fi
 
+    # The rest of the function remains the same...
     echo "[$(date +%H:%M:%S)]: Preparing Fleet database..."
     # Prepare the DB
     fleet prepare db --mysql_address=127.0.0.1:3306 --mysql_database=fleet --mysql_username=root --mysql_password=fleet
@@ -355,10 +445,19 @@ install_fleet_import_osquery_config() {
 
     # Start Fleet
     echo "[$(date +%H:%M:%S)]: Waiting for fleet service to start..."
+    COUNTER=0
+    MAX_TRIES=60
     while true; do
       result=$(curl --silent -k https://127.0.0.1:8412)
       if echo "$result" | grep -q setup; then break; fi
-      sleep 1
+      COUNTER=$((COUNTER+1))
+      if [ $COUNTER -ge $MAX_TRIES ]; then
+        echo "[$(date +%H:%M:%S)]: Timed out waiting for Fleet service to start."
+        echo "[$(date +%H:%M:%S)]: Check service status with: systemctl status fleet"
+        return 1
+      fi
+      echo "[$(date +%H:%M:%S)]: Waiting for fleet service... ($COUNTER/$MAX_TRIES)"
+      sleep 5
     done
 
     echo "[$(date +%H:%M:%S)]: Configuring fleetctl..."
@@ -785,7 +884,7 @@ main() {
   install_velociraptor
   install_suricata
   install_zeek
-  install_guacamole
+#  install_guacamole
   configure_splunk_inputs
 }
 
