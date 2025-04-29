@@ -17,10 +17,56 @@ Updates
 - Tested Only with VMWare Workstation 17.6
 
 
-Troubleshooting and Tips
-------------------------
+TLDR; Installation
+------------------
+#download vagrant and install
+https://developer.hashicorp.com/vagrant/downloads
+
+#install vmware desktop plugin
+vagrant plugin install vagrant-vmware-desktop
+
+#download and install vagrant vmware utility
+https://developer.hashicorp.com/vagrant/install/vmware
+net.exe start vagrant-vmware-utility
+
+#disable all network interfaces of unused hypervisor (vmare/virtualbox, the one you dont use)
+
+#clone the repo
+git clone https://github.com/hasamba/DetectionLabRevamped.git
+cd DetectionLabRevamped/Vagrant
+
+#RUN AS ADMIN
+.\prepare.ps1
+
+#DO NOT RUN AS ADMIN
+vagrant up --provider=vmware_desktop
+#or one by one
+vagrant up logger
+vagrant up dc
+vagrant up wef
+vagrant up win10
+
+.\post_build_checks.ps1
+
+
+Tips
+----
 - disable network adapters for the hypervisor you do NOT use, for example is installing with vmware than disable virtualbox network cards (if exists)
 - Install as non privileged user
+
+Troubleshooting
+---------------
+- Vagrant encountered an unexpected communications error with the Vagrant VMware Utility driver
+  - check that vagrant-vmware-utility service is started
+- Vagrant service failed to start
+  - 1. Check event log
+    2. reinstall driver
+    3. `net stop winnat` & `net start winnat`
+    4. `C:\HashiCorp\VagrantVMwareUtility\bin\vagrant-vmware-utility.exe certificate generate`
+- A VM machine fail to install
+  - try vagrant reload MACHINE_NAME —provision or vagrant destroy MACHINE_NAME -f;vagrant up MACHINE_NAME
+- if all fail and you want a fresh install
+  - delete the hidden folder .vagrant under vagrant and start again
 
 
 
