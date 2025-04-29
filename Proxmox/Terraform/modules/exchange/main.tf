@@ -39,7 +39,7 @@ resource "proxmox_vm_qemu" "exchange" {
     firewall = false
   }
 
-  # This is the local network that will be used for 192.168.56.x addressing
+  # This is the local network that will be used for 192.168.57.x addressing
   network {
     model = "virtio"
     bridge = var.hostonly_network

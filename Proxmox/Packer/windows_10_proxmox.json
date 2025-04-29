@@ -13,7 +13,7 @@
         "cores": 2,  
         "cpu_type": "host",
         "memory": 4096,
-        "os": "win10",
+        "os": "win11",
         "network_adapters": [
           {
             "model": "virtio",
@@ -43,7 +43,7 @@
         "additional_iso_files": [
           {
             "device": "ide3",
-            "iso_url": "./http/Autounattend_Win10.iso",
+            "iso_url": "./http/Autounattend_win11.iso",
             "iso_storage_pool": "{{user `proxmox_iso_storage_pool`}}",
             "iso_checksum": "e9c3840f120c22ea5e4259fffed0b824",
             "unmount": true

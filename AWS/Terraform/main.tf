@@ -27,7 +27,7 @@ resource "aws_route" "internet_access" {
 # Create a subnet to launch our instances into
 resource "aws_subnet" "default" {
   vpc_id                  = aws_vpc.default.id
-  cidr_block              = "192.168.56.0/24"
+  cidr_block              = "192.168.57.0/24"
   availability_zone       = var.availability_zone
   map_public_ip_on_launch = true
 }
@@ -35,8 +35,8 @@ resource "aws_subnet" "default" {
 # Adjust VPC DNS settings to not conflict with lab
 resource "aws_vpc_dhcp_options" "default" {
   domain_name          = "windomain.local"
-  domain_name_servers  = concat(["192.168.56.102"], var.external_dns_servers)
-  netbios_name_servers = ["192.168.56.102"]
+  domain_name_servers  = concat(["192.168.57.102"], var.external_dns_servers)
+  netbios_name_servers = ["192.168.57.102"]
 }
 
 resource "aws_vpc_dhcp_options_association" "default" {
@@ -101,7 +101,7 @@ resource "aws_security_group" "logger" {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["192.168.56.0/24"]
+    cidr_blocks = ["192.168.57.0/24"]
   }
 
   # outbound internet access
@@ -147,7 +147,7 @@ resource "aws_security_group" "windows" {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["192.168.56.0/24"]
+    cidr_blocks = ["192.168.57.0/24"]
   }
 
   # outbound internet access
@@ -173,7 +173,7 @@ resource "aws_instance" "logger" {
   subnet_id              = aws_subnet.default.id
   vpc_security_group_ids = [aws_security_group.logger.id]
   key_name               = aws_key_pair.auth.key_name
-  private_ip             = "192.168.56.105"
+  private_ip             = "192.168.57.105"
 
   provisioner "remote-exec" {
     inline = [
@@ -242,7 +242,7 @@ resource "aws_instance" "dc" {
 
   subnet_id              = aws_subnet.default.id
   vpc_security_group_ids = [aws_security_group.windows.id]
-  private_ip             = "192.168.56.102"
+  private_ip             = "192.168.57.102"
 
   root_block_device {
     delete_on_termination = true
@@ -286,14 +286,14 @@ resource "aws_instance" "wef" {
 
   subnet_id              = aws_subnet.default.id
   vpc_security_group_ids = [aws_security_group.windows.id]
-  private_ip             = "192.168.56.103"
+  private_ip             = "192.168.57.103"
 
   root_block_device {
     delete_on_termination = true
   }
 }
 
-resource "aws_instance" "win10" {
+resource "aws_instance" "win11" {
   instance_type = "t2.large"
   depends_on = [
     aws_vpc_dhcp_options.default,
@@ -324,13 +324,13 @@ resource "aws_instance" "win10" {
   }
 
   # Uses the local variable if external data source resolution fails
-  ami = coalesce(var.win10_ami, element(concat(data.aws_ami.win10_ami.*.image_id, [""]), 0))
+  ami = coalesce(var.win11_ami, element(concat(data.aws_ami.win11_ami.*.image_id, [""]), 0))
 
-  tags = tomap({ "Name" = "${var.instance_name_prefix}win10.windomain.local" })
+  tags = tomap({ "Name" = "${var.instance_name_prefix}win11.windomain.local" })
 
   subnet_id              = aws_subnet.default.id
   vpc_security_group_ids = [aws_security_group.windows.id]
-  private_ip             = "192.168.56.104"
+  private_ip             = "192.168.57.104"
 
   root_block_device {
     delete_on_termination = true

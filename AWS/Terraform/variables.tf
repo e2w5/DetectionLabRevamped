@@ -77,15 +77,15 @@ data "aws_ami" "wef_ami" {
   }
 }
 
-# Use Data Sources to resolve the AMI-ID for the pre-built Win10 host
-data "aws_ami" "win10_ami" {
-  count       = var.win10_ami == "" ? 1 : 0
+# Use Data Sources to resolve the AMI-ID for the pre-built win11 host
+data "aws_ami" "win11_ami" {
+  count       = var.win11_ami == "" ? 1 : 0
   owners      = ["505638924199"]
   most_recent = true
 
   filter {
     name   = "name"
-    values = ["detectionlab-win10"]
+    values = ["detectionlab-win11"]
   }
 }
 
@@ -111,7 +111,7 @@ variable "exchange_ami" {
   default = ""
 }
 
-variable "win10_ami" {
+variable "win11_ami" {
   type    = string
   default = ""
 }

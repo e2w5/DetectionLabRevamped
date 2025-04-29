@@ -6,8 +6,8 @@ $hostsFile = "c:\Windows\System32\drivers\etc\hosts"
 Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Joining the domain..."
 
 Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) First, set DNS to DC to join the domain..."
-$newDNSServers = "192.168.56.102"
-$adapters = Get-WmiObject Win32_NetworkAdapterConfiguration | Where-Object {$_.IPAddress -match "192.168.56."}
+$newDNSServers = "192.168.57.102"
+$adapters = Get-WmiObject Win32_NetworkAdapterConfiguration | Where-Object {$_.IPAddress -match "192.168.57."}
 # Don't do this in Azure. If the network adatper description contains "Hyper-V", this won't apply changes.
 # Specify the DC as a WINS server to help with connectivity as well
 $adapters | ForEach-Object {if (!($_.Description).Contains("Hyper-V")) {$_.SetDNSServerSearchOrder($newDNSServers); $_.SetWINSServer($newDNSServers, "")}}
@@ -37,9 +37,9 @@ If (($hostname -eq "wef") -or ($hostname -eq "exchange")) {
   Set-ItemProperty -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Control' -Name 'WaitToKillServiceTimeout' -Value '500' -Type String -Force -ea SilentlyContinue
   New-ItemProperty -LiteralPath 'HKCU:\Control Panel\Desktop' -Name 'AutoEndTasks' -Value 1 -PropertyType DWord -Force -ea SilentlyContinue
   Set-ItemProperty -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Control\SessionManager\Power' -Name 'HiberbootEnabled' -Value 0 -Type DWord -Force -ea SilentlyContinue
-} ElseIf ($hostname -eq "win10") {
-   Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Adding Win10 to the domain."
-  ### Debugging the Win10 domain join issue https://github.com/clong/DetectionLab/issues/801
+} ElseIf ($hostname -eq "win11") {
+   Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Adding Win11 to the domain."
+  ### Debugging the Win11 domain join issue https://github.com/clong/DetectionLab/issues/801
   $tries = 0
   While ($tries -lt 3) {
     Try {
@@ -69,8 +69,8 @@ Stop-Service TrustedInstaller
 Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Done Disabling Windows Updates and Windows Module Services"
 
 # Uninstall Windows Defender from WEF
-# This command isn't supported on WIN10
-If ($hostname -ne "win10" -And (Get-Service -Name WinDefend -ErrorAction SilentlyContinue).status -eq 'Running') {
+# This command isn't supported on win11
+If ($hostname -ne "win11" -And (Get-Service -Name WinDefend -ErrorAction SilentlyContinue).status -eq 'Running') {
   # Uninstalling Windows Defender (https://github.com/StefanScherer/packer-windows/issues/201)
   Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Uninstalling Windows Defender..."
   Try {

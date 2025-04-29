@@ -3,7 +3,7 @@
   win_dns_client:
     adapter_names: '*'
     ipv4_addresses:
-      - 192.168.56.102
+      - 192.168.57.102
       - 8.8.8.8
     log_path: C:\dns_log.txt
 
@@ -32,20 +32,20 @@
   win_shell:  .\\MakeWindows10GreatAgain.ps1
   args:
     chdir: 'c:\vagrant\scripts'
-  register: win10_great
-  changed_when: "' was already installed. Moving On.' not in win10_great.stdout"
+  register: win11_great
+  changed_when: "' was already installed. Moving On.' not in win11_great.stdout"
 
 - name: Join the Domain
   win_shell: .\\provision.ps1
   args:
     chdir: 'c:\vagrant\scripts'
-  register: win10_join_domain
-  changed_when: "'HasSucceeded : True' in win10_join_domain.stdout"
-  failed_when: '"failed to join domain" in win10_join_domain.stderr'
+  register: win11_join_domain
+  changed_when: "'HasSucceeded : True' in win11_join_domain.stdout"
+  failed_when: '"failed to join domain" in win11_join_domain.stderr'
 
 - name: Update group policy
   win_shell: "gpupdate /force"
-  when: win10_join_domain.changed
+  when: win11_join_domain.changed
 
 - name: Reboot Server
   win_reboot:
@@ -53,7 +53,7 @@
     pre_reboot_delay: 15
     reboot_timeout: 600
     post_reboot_delay: 60
-  when: win10_join_domain.changed
+  when: win11_join_domain.changed
 
 - name: Check if DetectionLab Clear Event Logs has been done
   win_stat:

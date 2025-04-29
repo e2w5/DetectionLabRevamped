@@ -22,10 +22,10 @@
     - common
   tags: exchange
 
-- hosts: win10
+- hosts: win11
   roles:
-    - win10
+    - win11
     - common
-  tags: win10
+  tags: win11
 
 

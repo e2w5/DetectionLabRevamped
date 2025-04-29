@@ -9,7 +9,7 @@ $ProgressPreference = 'SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 # Windows Defender should be disabled already by O&O ShutUp10 and the GPO
-If ($hostname -eq "win10" -And (Get-Service -Name WinDefend).StartType -ne 'Disabled' ) {
+If ($hostname -eq "win11" -And (Get-Service -Name WinDefend).StartType -ne 'Disabled' ) {
   # Adding Defender exclusions just in case
   Set-MpPreference -ExclusionPath "C:\Tools"
   Add-MpPreference -ExclusionPath "C:\Users\vagrant\AppData\Local\Temp"
@@ -22,7 +22,7 @@ If ($hostname -eq "win10" -And (Get-Service -Name WinDefend).StartType -ne 'Disa
 }
 
 # Windows Defender should be disabled by the GPO or uninstalled already, but we'll keep this just in case
-If ($hostname -ne "win10" -And (Get-Service -Name WinDefend -ErrorAction SilentlyContinue).status -eq 'Running') {
+If ($hostname -ne "win11" -And (Get-Service -Name WinDefend -ErrorAction SilentlyContinue).status -eq 'Running') {
   # Uninstalling Windows Defender (https://github.com/StefanScherer/packer-windows/issues/201)
     Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Uninstalling Windows Defender..."
   Try {

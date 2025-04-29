@@ -65,7 +65,7 @@ build_vagrant_hosts() {
     (vagrant up $HOST &>"$DL_DIR/Vagrant/vagrant_up_$HOST.log" || vagrant reload $HOST --provision &>"$DL_DIR/Vagrant/vagrant_up_$HOST.log") &
     declare ${HOST}_PID=$!
   done
-  # We only have to wait for DC to create the domain before kicking off wef and win10 builds
+  # We only have to wait for DC to create the domain before kicking off wef and win11 builds
   DC_CREATION_TIMEOUT=30
   MINUTES_PASSED=0
   while ! grep 'I am domain joined!' "$DL_DIR/Vagrant/vagrant_up_dc.log" >/dev/null; do
@@ -77,20 +77,20 @@ build_vagrant_hosts() {
       exit 1
     fi
   done
-  # Kick off builds for wef and win10
+  # Kick off builds for wef and win11
   cd "$DL_DIR"/Vagrant || exit 1
-  for HOST in wef win10; do
+  for HOST in wef win11; do
     (vagrant up $HOST &>>"$DL_DIR/Vagrant/vagrant_up_$HOST.log" || vagrant reload $HOST --provision &>>"$DL_DIR/Vagrant/vagrant_up_$HOST.log") &
     declare ${HOST}_PID=$!
   done
   # Wait for all the builds to finish
   # shellcheck disable=SC2154
-  while ps -p "$logger_PID" >/dev/null || ps -p "$dc_PID" >/dev/null || ps -p "$wef_PID" >/dev/null || ps -p "$win10_PID" >/dev/null; do
+  while ps -p "$logger_PID" >/dev/null || ps -p "$dc_PID" >/dev/null || ps -p "$wef_PID" >/dev/null || ps -p "$win11_PID" >/dev/null; do
     (echo >&2 "[$(date +%H:%M:%S)]: Waiting for all of the hosts to finish provisioning...")
     sleep 60
   done
   ### This code is absolutely terrible. Fix it at some point when I'm less lazy
-  for HOST in logger dc wef win10; do
+  for HOST in logger dc wef win11; do
     if [[ "$HOST" == "logger" ]]; then
       if grep 'logger: OK' "$DL_DIR/Vagrant/vagrant_up_$HOST.log" > /dev/null; then
         (echo >&2 "[$(date +%H:%M:%S)]: $HOST was built successfully!")

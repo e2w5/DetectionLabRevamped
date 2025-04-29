@@ -18,19 +18,19 @@ EXCHANGE_EXISTS=0
 
 cd /opt/DetectionLab/Vagrant || exit 1
 echo "Clearing out Splunk indexes"
-ssh -o StrictHostKeyChecking=no -i /opt/DetectionLab/Vagrant/.vagrant/machines/logger/virtualbox/private_key vagrant@192.168.56.105 'sudo /opt/splunk/bin/splunk stop && sudo /opt/splunk/bin/splunk clean eventdata -f'
+ssh -o StrictHostKeyChecking=no -i /opt/DetectionLab/Vagrant/.vagrant/machines/logger/virtualbox/private_key vagrant@192.168.57.105 'sudo /opt/splunk/bin/splunk stop && sudo /opt/splunk/bin/splunk clean eventdata -f'
 
 echo "Running WinRM Commands to open WinRM on the firewall..."
-for host in dc wef win10;
+for host in dc wef win11;
 do
   echo "Running 'Set-NetFirewallRule -Name WINRM-HTTP-In-TCP -Profile Any' on $host..."
   vagrant winrm -e -c "Set-NetFirewallRule -Name 'WINRM-HTTP-In-TCP' -Profile Any" -s powershell $host; sleep 2
 done
-echo "Running 'Set-NetFirewallRule -Name WINRM-HTTP-In-TCP-NoScope -Profile Any' on win10..."
-vagrant winrm -c "Set-NetFirewallRule -Name 'WINRM-HTTP-In-TCP-NoScope' -Profile Any" -s powershell win10; sleep 2
+echo "Running 'Set-NetFirewallRule -Name WINRM-HTTP-In-TCP-NoScope -Profile Any' on win11..."
+vagrant winrm -c "Set-NetFirewallRule -Name 'WINRM-HTTP-In-TCP-NoScope' -Profile Any" -s powershell win11; sleep 2
 
 echo "Running WinRM Commands to clear the event logs..."
-for host in dc wef win10;
+for host in dc wef win11;
 do
   echo "Clearing event logs on $host..."
   vagrant winrm -e -s powershell -c 'wevtutil el | Select-String -notmatch "Microsoft-Windows-LiveId" | Foreach-Object {wevtutil cl "$_"}' $host
@@ -38,7 +38,7 @@ do
 done
 
 echo "Printing activivation status of all hosts..."
-for host in dc wef win10;
+for host in dc wef win11;
 do
   echo "$host"
   vagrant winrm -s powershell -c "cscript c:\windows\system32\slmgr.vbs /dlv" $host
@@ -82,7 +82,7 @@ sn=tmuxsession
 tmux new-session -s "$sn" -d
 tmux new-window -t "$sn:2" -n "dc" -d
 tmux new-window -t "$sn:3" -n "wef" -d
-tmux new-window -t "$sn:4" -n "win10" -d
+tmux new-window -t "$sn:4" -n "win11" -d
 if [ "$EXCHANGE_EXISTS" -eq 1 ]; then
   tmux new-window -t "$sn:5" -n "exchange" -d
 fi
@@ -90,21 +90,21 @@ fi
 if which vmrun; then
   tmux send-keys -t "$sn:2" 'ovftool /opt/DetectionLab/Vagrant/.vagrant/machines/dc/vmware_desktop/*/WindowsServer2016.vmx /root/dc.ova && echo -n "success" > /root/dc.export || echo "failed" > /root/dc.export' Enter
   tmux send-keys -t "$sn:3" 'ovftool /opt/DetectionLab/Vagrant/.vagrant/machines/wef/vmware_desktop/*/WindowsServer2016.vmx /root/wef.ova && echo -n "success" > /root/wef.export || echo "failed" > /root/wef.export' Enter
-  tmux send-keys -t "$sn:4" 'ovftool /opt/DetectionLab/Vagrant/.vagrant/machines/win10/vmware_desktop/*/windows_10.vmx /root/win10.ova && echo -n "success" > /root/win10.export || echo "failed" > /root/win10.export' Enter
+  tmux send-keys -t "$sn:4" 'ovftool /opt/DetectionLab/Vagrant/.vagrant/machines/win11/vmware_desktop/*/windows_10.vmx /root/win11.ova && echo -n "success" > /root/win11.export || echo "failed" > /root/win11.export' Enter
   if [ "$EXCHANGE_EXISTS" -eq 1 ]; then
     tmux send-keys -t "$sn:5" 'ovftool /opt/DetectionLab/Vagrant/Exchange/.vagrant/machines/exchange/vmware_desktop/*/exchange.vmx /root/exchange.ova && echo -n "success" > /root/exchange.export || echo "failed" > /root/exchange.export' Enter
   fi
 else
   tmux send-keys -t "$sn:2" 'vboxmanage export dc.windomain.local -o /root/dc.ova && echo -n "success" > /root/dc.export || echo "failed" > /root/dc.export' Enter
   tmux send-keys -t "$sn:3" 'vboxmanage export wef.windomain.local -o /root/wef.ova && echo -n "success" > /root/wef.export || echo "failed" > /root/wef.export' Enter
-  tmux send-keys -t "$sn:4" 'vboxmanage export win10.windomain.local -o /root/win10.ova && echo -n "success" > /root/win10.export || echo "failed" > /root/win10.export' Enter
+  tmux send-keys -t "$sn:4" 'vboxmanage export win11.windomain.local -o /root/win11.ova && echo -n "success" > /root/win11.export || echo "failed" > /root/win11.export' Enter
   if [ "$EXCHANGE_EXISTS" -eq 1 ]; then
     tmux send-keys -t "$sn:5" 'vboxmanage export exchange.windomain.local -o /root/exchange.ova && echo -n "success" > /root/exchange.export || echo "failed" > /root/exchange.export' Enter
   fi
 fi
 
 # Sleep until all exports are complete
-while [[ ! -f /root/dc.export || ! -f /root/wef.export || ! -f /root/win10.export ]];
+while [[ ! -f /root/dc.export || ! -f /root/wef.export || ! -f /root/win11.export ]];
 do 
   if [ "$EXCHANGE_EXISTS" -eq 1 ]; then
     if [ ! -f /root/exchange.export ]; then
@@ -118,8 +118,8 @@ do
 done
 
 # Copy each OVA into S3
-if [[ "$(cat /root/dc.export)" == "success" && "$(cat /root/wef.export)" == "success" && "$(cat /root/win10.export)" == "success" ]]; then
-  for file in dc wef win10
+if [[ "$(cat /root/dc.export)" == "success" && "$(cat /root/wef.export)" == "success" && "$(cat /root/win11.export)" == "success" ]]; then
+  for file in dc wef win11
   do
     aws s3 cp /root/$file.ova s3://$BUCKET_NAME/disks/
   done
@@ -142,7 +142,7 @@ done
 
 aws ec2 import-image --description "dc" --license-type byol --disk-containers file:///opt/DetectionLab/AWS/Terraform/vm_import/dc.json
 aws ec2 import-image --description "wef" --license-type byol --disk-containers file:///opt/DetectionLab/AWS/Terraform/vm_import/wef.json
-aws ec2 import-image --description "win10" --license-type byol --disk-containers file:///opt/DetectionLab/AWS/Terraform/vm_import/win10.json
+aws ec2 import-image --description "win11" --license-type byol --disk-containers file:///opt/DetectionLab/AWS/Terraform/vm_import/win11.json
 if [ "$EXCHANGE_EXISTS" -eq 1 ]; then
   aws ec2 import-image --description "exchange" --license-type byol --disk-containers file:///opt/DetectionLab/AWS/Terraform/vm_import/exchange.json
 fi

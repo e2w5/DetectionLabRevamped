@@ -38,7 +38,7 @@ resource "proxmox_vm_qemu" "logger" {
     firewall = false
   }
 
-  # This is the local network that will be used for 192.168.56.x addressing
+  # This is the local network that will be used for 192.168.57.x addressing
   network {
     model = "virtio"
     bridge = var.hostonly_network
@@ -93,7 +93,7 @@ resource "proxmox_vm_qemu" "dc" {
     firewall = false
   }
 
- # This is the local network that will be used for 192.168.56.x addressing
+ # This is the local network that will be used for 192.168.57.x addressing
   network {
     model = "virtio"
     bridge = var.hostonly_network
@@ -134,7 +134,7 @@ resource "proxmox_vm_qemu" "wef" {
     firewall = false
   }
 
- # This is the local network that will be used for 192.168.56.x addressing
+ # This is the local network that will be used for 192.168.57.x addressing
   network {
     model = "virtio"
     bridge = var.hostonly_network
@@ -143,12 +143,12 @@ resource "proxmox_vm_qemu" "wef" {
   }
 }
 
-resource "proxmox_vm_qemu" "win10" {
-  name = "win10"
+resource "proxmox_vm_qemu" "win11" {
+  name = "win11"
   target_node = var.proxmox_node
   clone = "Windows10"
   full_clone = true
-  desc = "win10"
+  desc = "win11"
   cores = "2"
   sockets = "1"
   cpu = "host"
@@ -175,7 +175,7 @@ resource "proxmox_vm_qemu" "win10" {
     firewall = false
   }
 
- # This is the local network that will be used for 192.168.56.x addressing
+ # This is the local network that will be used for 192.168.57.x addressing
   network {
     model = "virtio"
     bridge = var.hostonly_network

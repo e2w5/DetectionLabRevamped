@@ -22,10 +22,10 @@ output "wef_ips" {
   value = proxmox_vm_qemu.wef.default_ipv4_address
 }
 
-output "win10_interfaces" {
-  value = proxmox_vm_qemu.win10.network
+output "win11_interfaces" {
+  value = proxmox_vm_qemu.win11.network
 }
 
-output "win10_ips" {
-  value = proxmox_vm_qemu.win10.default_ipv4_address
+output "win11_ips" {
+  value = proxmox_vm_qemu.win11.default_ipv4_address
 }

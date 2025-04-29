@@ -208,7 +208,7 @@ function preflight_checks {
   Set-Location "$VAGRANT_DIR"
   if (($(vagrant status) | Select-String -Pattern "not[ _]created").Count -ne 4) {
     Write-Host '  [-] You appear to have already created at least one Vagrant instance.' -ForegroundColor yellow
-    vagrant status | Select-String 'not[ _]created' -NotMatch | Select-String -Pattern 'logger|dc|wef|win10'
+    vagrant status | Select-String 'not[ _]created' -NotMatch | Select-String -Pattern 'logger|dc|wef|win11'
     Write-Host ''
     Write-Host '  [-] If you want to start with a fresh install, you should run `vagrant destroy -f` to remove existing instances.' -ForegroundColor yellow
   }

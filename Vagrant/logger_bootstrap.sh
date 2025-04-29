@@ -2,20 +2,23 @@
 # shellcheck disable=SC1091,SC2129
 
 # This is the script that is used to provision the logger host
+# Updated for Ubuntu 24.04
 
-# Override existing DNS Settings using netplan, but don't do it for Terraform AWS builds
-if ! curl -s 169.254.169.254 --connect-timeout 2 >/dev/null; then
-  echo -e "    eth1:\n      dhcp4: true\n      nameservers:\n        addresses: [8.8.8.8,8.8.4.4]" >>/etc/netplan/01-netcfg.yaml
-  netplan apply
-fi
-
-# Kill systemd-resolvd, just use plain ol' /etc/resolv.conf
-systemctl disable systemd-resolved
-systemctl stop systemd-resolved
-rm /etc/resolv.conf
-echo 'nameserver 8.8.8.8' >> /etc/resolv.conf
-echo 'nameserver 8.8.4.4' >> /etc/resolv.conf
-echo 'nameserver 192.168.56.102' >> /etc/resolv.conf
+# Configure DNS - Ubuntu 24.04 uses systemd-resolved differently
+configure_dns() {
+  echo "[$(date +%H:%M:%S)]: Configuring DNS settings..."
+  # Check if we're running in AWS
+  if ! curl -s 169.254.169.254 --connect-timeout 2 >/dev/null; then
+    # We're not in AWS, configure DNS for lab environment
+    mkdir -p /etc/systemd/resolved.conf.d/
+    cat <<EOF > /etc/systemd/resolved.conf.d/dns_servers.conf
+[Resolve]
+DNS=8.8.8.8 8.8.4.4 192.168.57.102
+DNSStubListener=yes
+EOF
+    systemctl restart systemd-resolved
+  fi
+}
 
 # Source variables from logger_variables.sh
 # shellcheck disable=SC1091
@@ -29,26 +32,15 @@ if [ -z "$MAXMIND_LICENSE" ]; then
 fi
 
 export DEBIAN_FRONTEND=noninteractive
-echo "apt-fast apt-fast/maxdownloads string 10" | debconf-set-selections
-echo "apt-fast apt-fast/dlflag boolean true" | debconf-set-selections
 
 apt_install_prerequisites() {
-  echo "[$(date +%H:%M:%S)]: Adding apt repositories..."
-  # Add repository for apt-fast
-  add-apt-repository -y -n ppa:apt-fast/stable 
-  # Add repository for yq
-  add-apt-repository -y -n ppa:rmescandon/yq 
-  # Add repository for suricata
-  add-apt-repository -y -n ppa:oisf/suricata-stable 
-  # Install prerequisites and useful tools
-  echo "[$(date +%H:%M:%S)]: Running apt-get clean..."
-  apt-get clean
   echo "[$(date +%H:%M:%S)]: Running apt-get update..."
   apt-get -qq update
-  echo "[$(date +%H:%M:%S)]: Installing apt-fast..."
-  apt-get -qq install -y apt-fast
-  echo "[$(date +%H:%M:%S)]: Using apt-fast to install packages..."
-  apt-fast install -y jq whois build-essential git unzip htop yq mysql-server redis-server python3-pip libcairo2-dev libjpeg-turbo8-dev libpng-dev libtool-bin libossp-uuid-dev libavcodec-dev libavutil-dev libswscale-dev freerdp2-dev libpango1.0-dev libssh2-1-dev libvncserver-dev libtelnet-dev libssl-dev libvorbis-dev libwebp-dev tomcat9 tomcat9-admin tomcat9-user tomcat9-common net-tools
+  echo "[$(date +%H:%M:%S)]: Installing prerequisites..."
+  
+  # Just use apt-get directly - avoid apt-fast complications
+  echo "[$(date +%H:%M:%S)]: Installing packages..."
+  apt-get install -y jq whois build-essential git unzip htop yq mysql-server redis-server python3-pip python3-venv libcairo2-dev libjpeg-turbo8-dev libpng-dev libtool-bin libossp-uuid-dev libavcodec-dev libavutil-dev libswscale-dev freerdp2-dev libpango1.0-dev libssh2-1-dev libvncserver-dev libtelnet-dev libssl-dev libvorbis-dev libwebp-dev tomcat10 tomcat10-admin tomcat10-user net-tools suricata crudini curl gnupg2
 }
 
 modify_motd() {
@@ -66,13 +58,12 @@ modify_motd() {
 test_prerequisites() {
   for package in jq whois build-essential git unzip yq mysql-server redis-server python3-pip; do
     echo "[$(date +%H:%M:%S)]: [TEST] Validating that $package is correctly installed..."
-    # Loop through each package using dpkg
-    if ! dpkg -S $package >/dev/null; then
-      # If which returns a non-zero return code, try to re-install the package
+    
+    # Use dpkg -l to check if package is installed
+    if ! dpkg -l | grep -q "^ii.*$package"; then
       echo "[-] $package was not found. Attempting to reinstall."
       apt-get -qq update && apt-get install -y $package
-      if ! which $package >/dev/null; then
-        # If the reinstall fails, give up
+      if ! dpkg -l | grep -q "^ii.*$package"; then
         echo "[X] Unable to install $package even after a retry. Exiting."
         exit 1
       fi
@@ -94,22 +85,33 @@ fix_eth1_static_ip() {
       return 0
     fi
   fi
-  # TODO: try to set correctly directly through vagrant net config
-  netplan set --origin-hint 90-disable-eth1-dhcp ethernets.eth1.dhcp4=false
-  netplan apply
+  
+  # Use systemd-networkd for interface configuration in Ubuntu 24.04
+  cat <<EOF > /etc/systemd/network/10-eth1-static.network
+[Match]
+Name=eth1
+
+[Network]
+Address=192.168.57.105/24
+DNS=8.8.8.8
+DNS=8.8.4.4
+EOF
+
+  systemctl restart systemd-networkd
 
   # Fix eth1 if the IP isn't set correctly
   ETH1_IP=$(ip -4 addr show eth1 | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -1)
-  if [ "$ETH1_IP" != "192.168.56.105" ]; then
+  if [ "$ETH1_IP" != "192.168.57.105" ]; then
     echo "Incorrect IP Address settings detected. Attempting to fix."
     ip link set dev eth1 down
     ip addr flush dev eth1
     ip link set dev eth1 up
+    ip addr add 192.168.57.105/24 dev eth1
     counter=0
     while :; do
       ETH1_IP=$(ip -4 addr show eth1 | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -1)
-      if [ "$ETH1_IP" == "192.168.56.105" ]; then
-        echo "[$(date +%H:%M:%S)]: The static IP has been fixed and set to 192.168.56.105"
+      if [ "$ETH1_IP" == "192.168.57.105" ]; then
+        echo "[$(date +%H:%M:%S)]: The static IP has been fixed and set to 192.168.57.105"
         break
       else
         if [ $counter -le 20 ]; then
@@ -132,7 +134,6 @@ fix_eth1_static_ip() {
     sleep 1
   done
 }
-
 install_splunk() {
   # Check if Splunk is already installed
   if [ -f "/opt/splunk/bin/splunk" ]; then
@@ -154,8 +155,8 @@ install_splunk() {
       wget --progress=bar:force -P /opt "$LATEST_SPLUNK"
     else
       echo "[$(date +%H:%M:%S)]: Unable to auto-resolve the latest Splunk version. Falling back to hardcoded URL..."
-      # Download Hardcoded Splunk
-      wget --progress=bar:force -O /opt/splunk-8.0.2-a7f645ddaf91-linux-2.6-amd64.deb 'https://download.splunk.com/products/splunk/releases/8.0.2/linux/splunk-8.0.2-a7f645ddaf91-linux-2.6-amd64.deb&wget=true'
+      # Download Hardcoded Splunk - Using a more recent version compatible with Ubuntu 24.04
+      wget --progress=bar:force -O /opt/splunk-9.0.4-de405f4a7979-linux-2.6-amd64.deb 'https://download.splunk.com/products/splunk/releases/9.0.4/linux/splunk-9.0.4-de405f4a7979-linux-2.6-amd64.deb'
     fi
     if ! ls /opt/splunk*.deb 1>/dev/null 2>&1; then
       echo "Something went wrong while trying to download Splunk. This script cannot continue. Exiting."
@@ -188,12 +189,12 @@ install_splunk() {
     /opt/splunk/bin/splunk install app /vagrant/resources/splunk_server/link-analysis-app-for-splunk_161.tgz -auth 'admin:changeme'
     /opt/splunk/bin/splunk install app /vagrant/resources/splunk_server/threathunting_1492.tgz -auth 'admin:changeme'
 
-    # Fix ASNGen App - https://github.com/doksu/TA-asngen/issues/18#issuecomment-685691630
-    echo 'python.version = python2' >>/opt/splunk/etc/apps/TA-asngen/default/commands.conf
+    # Fix ASNGen App for Python 3 compatibility in Ubuntu 24.04
+    echo 'python.version = python3' >>/opt/splunk/etc/apps/TA-asngen/default/commands.conf
 
     # Install the Maxmind license key for the ASNgen App if it was provided
     if [ -n "$MAXMIND_LICENSE" ]; then
-      mkdir /opt/splunk/etc/apps/TA-asngen/local
+      mkdir -p /opt/splunk/etc/apps/TA-asngen/local
       cp /opt/splunk/etc/apps/TA-asngen/default/asngen.conf /opt/splunk/etc/apps/TA-asngen/local/asngen.conf
       sed -i "s/license_key =/license_key = $MAXMIND_LICENSE/g" /opt/splunk/etc/apps/TA-asngen/local/asngen.conf
     fi
@@ -214,7 +215,7 @@ install_splunk() {
 
     # Add props.conf to Splunk Zeek TA to properly parse timestamp
     # and avoid grouping events as a single event
-    mkdir /opt/splunk/etc/apps/Splunk_TA_bro/local && cp /vagrant/resources/splunk_server/zeek_ta_props.conf /opt/splunk/etc/apps/Splunk_TA_bro/local/props.conf
+    mkdir -p /opt/splunk/etc/apps/Splunk_TA_bro/local && cp /vagrant/resources/splunk_server/zeek_ta_props.conf /opt/splunk/etc/apps/Splunk_TA_bro/local/props.conf
 
     # Add custom Macro definitions for ThreatHunting App
     cp /vagrant/resources/splunk_server/macros.conf /opt/splunk/etc/apps/ThreatHunting/default/macros.conf
@@ -228,11 +229,11 @@ install_splunk() {
     find /opt/splunk/etc/apps/ThreatHunting -type f ! -path "/opt/splunk/etc/apps/ThreatHunting/default/props.conf" -exec sed -i -e 's/event_id/EventCode/g' {} \;
 
     # Fix Windows TA macros
-    mkdir /opt/splunk/etc/apps/Splunk_TA_windows/local
+    mkdir -p /opt/splunk/etc/apps/Splunk_TA_windows/local
     cp /opt/splunk/etc/apps/Splunk_TA_windows/default/macros.conf /opt/splunk/etc/apps/Splunk_TA_windows/local
     sed -i 's/wineventlog_windows/wineventlog/g' /opt/splunk/etc/apps/Splunk_TA_windows/local/macros.conf
     # Fix Force Directed App until 2.0.1 is released (https://answers.splunk.com/answers/668959/invalid-key-in-stanza-default-value-light.html#answer-669418)
-    rm /opt/splunk/etc/apps/force_directed_viz/default/savedsearches.conf
+    rm -f /opt/splunk/etc/apps/force_directed_viz/default/savedsearches.conf
 
     # Add a Splunk TCP input on port 9997
     echo -e "[splunktcp://9997]\nconnection_host = ip" >/opt/splunk/etc/apps/search/local/inputs.conf
@@ -282,12 +283,11 @@ download_palantir_osquery_config() {
     cd /opt && git clone https://github.com/palantir/osquery-configuration.git
   fi
 }
-
 install_fleet_import_osquery_config() {
   if [ -d "/opt/fleet" ]; then
     echo "[$(date +%H:%M:%S)]: Fleet is already installed"
   else
-    cd /opt && mkdir /opt/fleet || exit 1
+    cd /opt && mkdir -p /opt/fleet || exit 1
 
     echo "[$(date +%H:%M:%S)]: Installing Fleet..."
     if ! grep 'fleet' /etc/hosts; then
@@ -298,28 +298,58 @@ install_fleet_import_osquery_config() {
     fi
 
     # Set MySQL username and password, create fleet database
+    # MySQL in Ubuntu 24.04 uses a different authentication plugin
     mysql -uroot -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'fleet';"
     mysql -uroot -pfleet -e "create database fleet;"
 
     # Always download the latest release of Fleet and Fleetctl
-    curl -s https://api.github.com/repos/fleetdm/fleet/releases/latest | jq '.assets[] | select(.name|match("linux.tar.gz$")) | .browser_download_url' | sed 's/"//g' | grep fleetctl  | wget --progress=bar:force -i -
+    echo "[$(date +%H:%M:%S)]: Downloading latest Fleet and fleetctl..."
+    curl -s https://api.github.com/repos/fleetdm/fleet/releases/latest | jq '.assets[] | select(.name|match("linux.tar.gz$")) | .browser_download_url' | sed 's/"//g' | grep fleetctl | wget --progress=bar:force -i -
     curl -s https://api.github.com/repos/fleetdm/fleet/releases/latest | jq '.assets[] | select(.name|match("linux.tar.gz$")) | .browser_download_url' | sed 's/"//g' | grep fleet | grep -v fleetctl | wget --progress=bar:force -i -
+    
+    # Check if the files were downloaded correctly
+    if [ ! -f fleet_*.tar.gz ] || [ ! -f fleetctl_*.tar.gz ]; then
+      echo "[$(date +%H:%M:%S)]: ERROR: Could not download Fleet files. Check connectivity to GitHub."
+      return 1
+    fi
+    
+    echo "[$(date +%H:%M:%S)]: Extracting Fleet files..."
     tar -xvf fleet_*.tar.gz
     tar -xvf fleetctl_*.tar.gz
-    cp fleetctl_*/fleetctl /usr/local/bin/fleetctl && chmod +x /usr/local/bin/fleetctl
-    cp fleet_*/fleet /usr/local/bin/fleet && chmod +x /usr/local/bin/fleet
+    
+    # Verify the extraction and locate the binaries
+    FLEETCTL_DIR=$(ls -d fleetctl_* 2>/dev/null)
+    FLEET_DIR=$(ls -d fleet_* 2>/dev/null)
+    
+    if [ -z "$FLEETCTL_DIR" ] || [ -z "$FLEET_DIR" ]; then
+      echo "[$(date +%H:%M:%S)]: ERROR: Fleet extraction failed. Archive contents may be corrupt."
+      return 1
+    fi
+    
+    echo "[$(date +%H:%M:%S)]: Installing Fleet binaries..."
+    cp ${FLEETCTL_DIR}/fleetctl /usr/local/bin/fleetctl && chmod +x /usr/local/bin/fleetctl
+    cp ${FLEET_DIR}/fleet /usr/local/bin/fleet && chmod +x /usr/local/bin/fleet
+    
+    # Verify the installation
+    if [ ! -x /usr/local/bin/fleetctl ] || [ ! -x /usr/local/bin/fleet ]; then
+      echo "[$(date +%H:%M:%S)]: ERROR: Failed to install Fleet binaries."
+      return 1
+    fi
 
+    echo "[$(date +%H:%M:%S)]: Preparing Fleet database..."
     # Prepare the DB
     fleet prepare db --mysql_address=127.0.0.1:3306 --mysql_database=fleet --mysql_username=root --mysql_password=fleet
 
     # Copy over the certs and service file
+    echo "[$(date +%H:%M:%S)]: Setting up Fleet certificates and service..."
     cp /vagrant/resources/fleet/server.* /opt/fleet/
     cp /vagrant/resources/fleet/fleet.service /etc/systemd/system/fleet.service
 
     # Create directory for logs
-    mkdir /var/log/fleet
+    mkdir -p /var/log/fleet
 
     # Install the service file
+    /bin/systemctl daemon-reload
     /bin/systemctl enable fleet.service
     /bin/systemctl start fleet.service
 
@@ -331,21 +361,33 @@ install_fleet_import_osquery_config() {
       sleep 1
     done
 
-    fleetctl config set --address https://192.168.56.105:8412
-    fleetctl config set --tls-skip-verify true
-    fleetctl setup --email admin@detectionlab.network --name admin --password 'Fl33tpassword!' --org-name DetectionLab
-    fleetctl login --email admin@detectionlab.network --password 'Fl33tpassword!'
-
-    # Set the enrollment secret to match what we deploy to Windows hosts
-    if mysql -uroot --password=fleet -e 'use fleet; INSERT INTO enroll_secrets(created_at, secret, team_id) VALUES ("2022-05-30 21:20:23", "enrollmentsecretenrollmentsecret", NULL);'; then
-      echo "Updated enrollment secret"
-    else
-      echo "Error adding the custom enrollment secret. This is going to cause problems with agent enrollment."
+    echo "[$(date +%H:%M:%S)]: Configuring fleetctl..."
+    # Verify fleetctl is available and in PATH
+    if ! command -v fleetctl &> /dev/null; then
+      echo "[$(date +%H:%M:%S)]: ERROR: fleetctl command not found after installation!"
+      echo "[$(date +%H:%M:%S)]: Manually setting PATH to include /usr/local/bin"
+      export PATH=$PATH:/usr/local/bin
     fi
 
-    # Change the query invervals to reflect a lab environment
+    # Use absolute path to fleetctl to avoid PATH issues
+    /usr/local/bin/fleetctl config set --address https://192.168.57.105:8412
+    /usr/local/bin/fleetctl config set --tls-skip-verify true
+    /usr/local/bin/fleetctl setup --email admin@detectionlab.network --name admin --password 'Fl33tpassword!' --org-name DetectionLab
+    /usr/local/bin/fleetctl login --email admin@detectionlab.network --password 'Fl33tpassword!'
+
+    # Set the enrollment secret to match what we deploy to Windows hosts
+    echo "[$(date +%H:%M:%S)]: Setting enrollment secret..."
+    if mysql -uroot --password=fleet -e 'use fleet; INSERT INTO enroll_secrets(created_at, secret, team_id) VALUES ("2022-05-30 21:20:23", "enrollmentsecretenrollmentsecret", NULL);'; then
+      echo "[$(date +%H:%M:%S)]: Updated enrollment secret"
+    else
+      echo "[$(date +%H:%M:%S)]: Error adding the custom enrollment secret. This is going to cause problems with agent enrollment."
+    fi
+
+    # Change the query intervals to reflect a lab environment
+    echo "[$(date +%H:%M:%S)]: Updating query intervals..."
     # Every hour -> Every 3 minutes
     # Every 24 hours -> Every 15 minutes
+    cd /opt || exit 1
     sed -i 's/interval: 3600/interval: 300/g' osquery-configuration/Fleet/Endpoints/MacOS/osquery.yaml
     sed -i 's/interval: 3600/interval: 300/g' osquery-configuration/Fleet/Endpoints/Windows/osquery.yaml
     sed -i 's/interval: 28800/interval: 1800/g' osquery-configuration/Fleet/Endpoints/MacOS/osquery.yaml
@@ -355,102 +397,30 @@ install_fleet_import_osquery_config() {
 
     # Don't log osquery INFO messages
     # Fix snapshot event formatting
-    fleetctl get config >/tmp/config.yaml
-    /usr/bin/yq eval -i '.spec.agent_options.config.options.enroll_secret = "enrollmentsecretenrollmentsecret"' /tmp/config.yaml
-    /usr/bin/yq eval -i '.spec.agent_options.config.options.logger_snapshot_event_type = true' /tmp/config.yaml
-    fleetctl apply -f /tmp/config.yaml
+    echo "[$(date +%H:%M:%S)]: Setting up Fleet configuration..."
+    # Get the configuration
+    /usr/local/bin/fleetctl get config >/tmp/config.yaml
+    
+    # Fix the yq command for Ubuntu 24.04
+    # In newer yq versions, -i needs to be combined with -y
+    /usr/bin/yq -yi '.spec.agent_options.config.options.enroll_secret = "enrollmentsecretenrollmentsecret"' /tmp/config.yaml
+    /usr/bin/yq -yi '.spec.agent_options.config.options.logger_snapshot_event_type = true' /tmp/config.yaml
+    /usr/local/bin/fleetctl apply -f /tmp/config.yaml
 
     # Use fleetctl to import YAML files
-    fleetctl apply -f osquery-configuration/Fleet/Endpoints/MacOS/osquery.yaml
-    fleetctl apply -f osquery-configuration/Fleet/Endpoints/Windows/osquery.yaml
+    echo "[$(date +%H:%M:%S)]: Importing osquery configurations..."
+    /usr/local/bin/fleetctl apply -f osquery-configuration/Fleet/Endpoints/MacOS/osquery.yaml
+    /usr/local/bin/fleetctl apply -f osquery-configuration/Fleet/Endpoints/Windows/osquery.yaml
     for pack in osquery-configuration/Fleet/Endpoints/packs/*.yaml; do
-      fleetctl apply -f "$pack"
+      /usr/local/bin/fleetctl apply -f "$pack"
     done
 
     # Add Splunk monitors for Fleet
     # Files must exist before splunk will add a monitor
     touch /var/log/fleet/osquery_result
     touch /var/log/fleet/osquery_status
-  fi
-}
-
-install_zeek() {
-  echo "[$(date +%H:%M:%S)]: Installing Zeek..."
-  # Environment variables
-  NODECFG=/opt/zeek/etc/node.cfg
-  if ! grep 'zeek' /etc/apt/sources.list.d/security:zeek.list &> /dev/null; then
-    sh -c "echo 'deb http://download.opensuse.org/repositories/security:/zeek/xUbuntu_20.04/ /' > /etc/apt/sources.list.d/security:zeek.list"
-  fi
-  wget -nv https://download.opensuse.org/repositories/security:zeek/xUbuntu_20.04/Release.key -O /tmp/Release.key 
-  apt-key add - </tmp/Release.key &>/dev/null
-  # Update APT repositories
-  apt-get -qq -ym update
-  # Install tools to build and configure Zeek
-  apt-get -qq -ym install zeek-lts crudini
-  export PATH=$PATH:/opt/zeek/bin
-  pip3 install zkg==2.1.1
-  zkg refresh
-  zkg autoconfig
-  zkg install --force salesforce/ja3
-  # Load Zeek scripts
-  echo '
-  @load protocols/ftp/software
-  @load protocols/smtp/software
-  @load protocols/ssh/software
-  @load protocols/http/software
-  @load tuning/json-logs
-  @load policy/integration/collective-intel
-  @load policy/frameworks/intel/do_notice
-  @load frameworks/intel/seen
-  @load frameworks/intel/do_notice
-  @load frameworks/files/hash-all-files
-  @load base/protocols/smb
-  @load policy/protocols/conn/vlan-logging
-  @load policy/protocols/conn/mac-logging
-  @load ja3
-
-  redef Intel::read_files += {
-    "/opt/zeek/etc/intel.dat"
-  };
-  
-  redef ignore_checksums = T;
-  
-  ' >>/opt/zeek/share/zeek/site/local.zeek
-
-  # Configure Zeek
-  crudini --del $NODECFG zeek
-  crudini --set $NODECFG manager type manager
-  crudini --set $NODECFG manager host localhost
-  crudini --set $NODECFG proxy type proxy
-  crudini --set $NODECFG proxy host localhost
-
-  # Setup $CPUS numbers of Zeek workers
-  # AWS only has a single interface (eth1), so don't monitor eth0 if we're in AWS
-  if ! curl -s 169.254.169.254 --connect-timeout 2 >/dev/null; then
-    # TL;DR of ^^^: if you can't reach the AWS metadata service, you're not running in AWS
-    # Therefore, it's ok to add this.
-    crudini --set $NODECFG worker-eth0 type worker
-    crudini --set $NODECFG worker-eth0 host localhost
-    crudini --set $NODECFG worker-eth0 interface eth0
-    crudini --set $NODECFG worker-eth0 lb_method pf_ring
-    crudini --set $NODECFG worker-eth0 lb_procs "$(nproc)"
-  fi
-
-  crudini --set $NODECFG worker-eth1 type worker
-  crudini --set $NODECFG worker-eth1 host localhost
-  crudini --set $NODECFG worker-eth1 interface eth1
-  crudini --set $NODECFG worker-eth1 lb_method pf_ring
-  crudini --set $NODECFG worker-eth1 lb_procs "$(nproc)"
-
-  # Setup Zeek to run at boot
-  cp /vagrant/resources/zeek/zeek.service /lib/systemd/system/zeek.service
-  systemctl enable zeek
-  systemctl start zeek
-
-  # Verify that Zeek is running
-  if ! pgrep -f zeek >/dev/null; then
-    echo "Zeek attempted to start but is not running. Exiting"
-    exit 1
+    
+    echo "[$(date +%H:%M:%S)]: Fleet installation and configuration complete!"
   fi
 }
 
@@ -480,7 +450,7 @@ install_velociraptor() {
   echo "[$(date +%H:%M:%S)]: Cleanup velociraptor package building leftovers..."
   rm -rf /opt/velociraptor/logs
   echo "[$(date +%H:%M:%S)]: Installing the dpkg..."
-  if dpkg -i velociraptor_*_server.deb >/dev/null; then
+  if dpkg -i velociraptor*server*.deb >/dev/null; then
     echo "[$(date +%H:%M:%S)]: Installation complete!"
   else
     echo "[$(date +%H:%M:%S)]: Failed to install the dpkg"
@@ -492,29 +462,30 @@ install_suricata() {
   # Run iwr -Uri testmyids.com -UserAgent "BlackSun" in Powershell to generate test alerts from Windows
   echo "[$(date +%H:%M:%S)]: Installing Suricata..."
 
-  # Install suricata
-  apt-get -qq -y install suricata crudini
+  # Install suricata - already installed in apt_install_prerequisites
   test_suricata_prerequisites
-  # Install suricata-update
-  cd /opt || exit 1
-  git clone https://github.com/OISF/suricata-update.git
-  cd /opt/suricata-update || exit 1
-  pip3 install pyyaml
-  python3 setup.py install
+  
+  # Install suricata-update (available as a package in Ubuntu 24.04)
+  echo "[$(date +%H:%M:%S)]: Installing suricata-update from package repository..."
+  apt-get install -y python3-suricata-update
 
   cp /vagrant/resources/suricata/suricata.yaml /etc/suricata/suricata.yaml
-  crudini --set --format=sh /etc/default/suricata '' iface eth1
-  # update suricata signature sources
+  # Configure Suricata to monitor eth1
+  mkdir -p /etc/suricata/suricata.d
+  echo "SURICATA_OPTIONS=\"-i eth1\"" > /etc/default/suricata
+  
+  # Update suricata signature sources
+  echo "[$(date +%H:%M:%S)]: Updating Suricata rules..."
   suricata-update update-sources
   # disable protocol decode as it is duplicative of Zeek
   echo re:protocol-command-decode >>/etc/suricata/disable.conf
-  # enable et-open and attackdetection sources
+  # enable et-open source
   suricata-update enable-source et/open
 
   # Update suricata and restart
   suricata-update
-  service suricata stop
-  service suricata start
+  systemctl stop suricata
+  systemctl start suricata
   sleep 3
 
   # Verify that Suricata is running
@@ -538,19 +509,16 @@ install_suricata() {
     endscript
 }
 EOF
-
 }
 
 test_suricata_prerequisites() {
   for package in suricata crudini; do
     echo "[$(date +%H:%M:%S)]: [TEST] Validating that $package is correctly installed..."
-    # Loop through each package using dpkg
-    if ! dpkg -S $package >/dev/null; then
-      # If which returns a non-zero return code, try to re-install the package
+    # Use dpkg -l to check if package is installed
+    if ! dpkg -l | grep -q "^ii.*$package"; then
       echo "[-] $package was not found. Attempting to reinstall."
       apt-get clean && apt-get -qq update && apt-get install -y $package
-      if ! which $package >/dev/null; then
-        # If the reinstall fails, give up
+      if ! dpkg -l | grep -q "^ii.*$package"; then
         echo "[X] Unable to install $package even after a retry. Exiting."
         exit 1
       fi
@@ -560,36 +528,220 @@ test_suricata_prerequisites() {
   done
 }
 
+install_zeek() {
+  echo "[$(date +%H:%M:%S)]: Installing Zeek..."
+  
+  # Add Zeek repository for Ubuntu 24.04
+  echo "[$(date +%H:%M:%S)]: Adding Zeek repository..."
+  
+  # Install required dependencies
+  apt-get install -y gnupg2 curl
+  
+  # Add Zeek repository for Ubuntu (now maintained by Corelight)
+  echo 'deb http://download.opensuse.org/repositories/security:/zeek/xUbuntu_24.04/ /' | tee /etc/apt/sources.list.d/security:zeek.list
+  curl -fsSL https://download.opensuse.org/repositories/security:zeek/xUbuntu_24.04/Release.key | gpg --dearmor | tee /etc/apt/trusted.gpg.d/security_zeek.gpg > /dev/null
+  
+  # Update package list
+  apt-get update
+  
+  # Install Zeek package
+  echo "[$(date +%H:%M:%S)]: Installing Zeek package..."
+  apt-get install -y zeek
+  
+  # Verify Zeek installation
+  if [ ! -d "/opt/zeek" ]; then
+    echo "[$(date +%H:%M:%S)]: ERROR: Zeek installation failed, directory /opt/zeek not found."
+    exit 1
+  fi
+  
+  # Configure PATH for Zeek
+  export PATH=$PATH:/opt/zeek/bin
+  
+  # Create a Python virtual environment for Zeek tools
+  echo "[$(date +%H:%M:%S)]: Setting up Python virtual environment for Zeek tools..."
+  apt-get install -y python3-venv
+  python3 -m venv /opt/zeek/venv
+  
+  # Install zkg in the virtual environment
+  echo "[$(date +%H:%M:%S)]: Installing zkg in virtual environment..."
+  /opt/zeek/venv/bin/pip install zkg
+  
+  # Configure zkg
+  echo "[$(date +%H:%M:%S)]: Configuring zkg..."
+  /opt/zeek/venv/bin/zkg refresh
+  /opt/zeek/venv/bin/zkg autoconfig
+  
+  # Install ja3 package
+  echo "[$(date +%H:%M:%S)]: Installing Zeek packages..."
+  /opt/zeek/venv/bin/zkg install --force salesforce/ja3
+  
+  # Add virtual environment to path
+  echo 'export PATH=$PATH:/opt/zeek/bin:/opt/zeek/venv/bin' >> /etc/profile.d/zeek.sh
+  source /etc/profile.d/zeek.sh
+  
+  # Load Zeek scripts
+  echo "[$(date +%H:%M:%S)]: Configuring Zeek scripts..."
+  mkdir -p /opt/zeek/share/zeek/site/
+  
+  # Make sure the local.zeek file exists
+  touch /opt/zeek/share/zeek/site/local.zeek
+  
+  echo '
+  @load protocols/ftp/software
+  @load protocols/smtp/software
+  @load protocols/ssh/software
+  @load protocols/http/software
+  @load tuning/json-logs
+  @load policy/integration/collective-intel
+  @load policy/frameworks/intel/do_notice
+  @load frameworks/intel/seen
+  @load frameworks/intel/do_notice
+  @load frameworks/files/hash-all-files
+  @load base/protocols/smb
+  @load policy/protocols/conn/vlan-logging
+  @load policy/protocols/conn/mac-logging
+  @load ja3
+
+  redef Intel::read_files += {
+    "/opt/zeek/etc/intel.dat"
+  };
+  
+  redef ignore_checksums = T;
+  ' >> /opt/zeek/share/zeek/site/local.zeek
+
+  # Create Zeek configuration directory if it doesn't exist
+  mkdir -p /opt/zeek/etc
+  
+  # Create a basic node.cfg file
+  echo "[$(date +%H:%M:%S)]: Creating Zeek node configuration..."
+  cat > /opt/zeek/etc/node.cfg << EOF
+[manager]
+type=manager
+host=localhost
+
+[proxy]
+type=proxy
+host=localhost
+
+[worker-eth1]
+type=worker
+host=localhost
+interface=eth1
+EOF
+
+  # Setup Zeek service - update for systemd
+  echo "[$(date +%H:%M:%S)]: Creating Zeek systemd service..."
+  cat > /etc/systemd/system/zeek.service <<EOF
+[Unit]
+Description=Zeek Network Security Monitor
+After=network.target
+
+[Service]
+Type=forking
+ExecStart=/opt/zeek/bin/zeekctl start
+ExecStop=/opt/zeek/bin/zeekctl stop
+ExecReload=/opt/zeek/bin/zeekctl reload
+RestartSec=10s
+Restart=on-failure
+User=root
+Group=root
+Environment="PATH=/opt/zeek/bin:/opt/zeek/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  # Initialize Zeek
+  echo "[$(date +%H:%M:%S)]: Initializing Zeek control framework..."
+  /opt/zeek/bin/zeekctl install
+
+  systemctl daemon-reload
+  systemctl enable zeek
+  systemctl start zeek
+  sleep 5
+
+  # Verify that Zeek is running
+  if ! pgrep -f zeek >/dev/null; then
+    echo "[$(date +%H:%M:%S)]: Zeek attempted to start but is not running. Check logs with 'journalctl -xeu zeek.service'"
+    # Don't exit yet, let's try to get more diagnostics
+    journalctl -xeu zeek.service
+    echo "[$(date +%H:%M:%S)]: Zeek installation failed but continuing with other components"
+  else
+    echo "[$(date +%H:%M:%S)]: Zeek is running successfully!"
+  fi
+}
 install_guacamole() {
   echo "[$(date +%H:%M:%S)]: Setting up Guacamole..."
-  cd /opt || exit 1
-  echo "[$(date +%H:%M:%S)]: Downloading Guacamole..."
-  wget --progress=bar:force "https://apache.org/dyn/closer.lua/guacamole/1.3.0/source/guacamole-server-1.3.0.tar.gz?action=download" -O guacamole-server-1.3.0.tar.gz
-  tar -xf guacamole-server-1.3.0.tar.gz && cd guacamole-server-1.3.0 || echo "[-] Unable to find the Guacamole folder."
-  echo "[$(date +%H:%M:%S)]: Configuring Guacamole and running 'make' and 'make install'..."
-  ./configure --with-init-dir=/etc/init.d && make --quiet &>/dev/null && make --quiet install &>/dev/null || echo "[-] An error occurred while installing Guacamole."
+
+  # Create the directory if it doesn't exist
+  if [ ! -d "/opt/guacamole" ]; then
+    mkdir /opt/guacamole || echo "Directory already exists"
+  fi
+  cd /opt/guacamole || exit 1
+
+  echo "[$(date +%H:%M:%S)]: Downloading Guacamole server version 1.5.5..."
+  wget --progress=bar:force "https://apache.org/dyn/closer.lua/guacamole/1.5.5/source/guacamole-server-1.5.5.tar.gz?action=download" -O guacamole-server.tar.gz
+
+  if [ $? -ne 0 ]; then
+    echo "[-] Failed to download Guacamole server. Exiting."
+    exit 1
+  fi
+
+  tar -xf guacamole-server.tar.gz && cd "guacamole-server-1.5.5" || { echo "[-] Unable to find the Guacamole folder."; exit 1; }
+
+  echo "[$(date +%H:%M:%S)]: Configuring and installing Guacamole server..."
+  if ./configure --with-init-dir=/etc/init.d --disable-Werror && make --quiet && make --quiet install; then
+    echo "[$(date +%H:%M:%S)]: Guacamole server successfully configured and installed!"
+  else
+    echo "[-] An error occurred while installing Guacamole."
+    exit 1
+  fi
   ldconfig
-  cd /var/lib/tomcat9/webapps || echo "[-] Unable to find the tomcat9/webapps folder."
-  wget --progress=bar:force "https://apache.org/dyn/closer.lua/guacamole/1.3.0/binary/guacamole-1.3.0.war?action=download" -O guacamole.war
-  mkdir /etc/guacamole
-  mkdir /etc/guacamole/shares
-  sudo chmod 777 /etc/guacamole/shares
-  mkdir /usr/share/tomcat9/.guacamole
+
+  # In Ubuntu 24.04, tomcat10 is used instead of tomcat9
+  cd /var/lib/tomcat10/webapps || { echo "[-] Unable to find the tomcat10/webapps folder."; exit 1; }
+
+  echo "[$(date +%H:%M:%S)]: Downloading Guacamole web application version 1.5.5..."
+  wget --progress=bar:force "https://apache.org/dyn/closer.lua/guacamole/1.5.5/binary/guacamole-1.5.5.war?action=download" -O guacamole.war
+
+  if [ $? -ne 0 ]; then
+    echo "[-] Failed to download Guacamole web application. Exiting."
+    exit 1
+  fi
+
+  mkdir -p /etc/guacamole/shares
+  chmod 777 /etc/guacamole/shares
+  mkdir -p /usr/share/tomcat10/.guacamole
+
+  echo "[$(date +%H:%M:%S)]: Copying configuration files..."
   cp /vagrant/resources/guacamole/user-mapping.xml /etc/guacamole/
   cp /vagrant/resources/guacamole/guacamole.properties /etc/guacamole/
   cp /vagrant/resources/guacamole/guacd.service /lib/systemd/system
-  sudo ln -s /etc/guacamole/guacamole.properties /usr/share/tomcat9/.guacamole/
-  sudo ln -s /etc/guacamole/user-mapping.xml /usr/share/tomcat9/.guacamole/
-  # Thank you Kifarunix: https://kifarunix.com/install-guacamole-on-debian-11/
-  useradd -M -d /var/lib/guacd/ -r -s /sbin/nologin -c "Guacd User" guacd
-  mkdir /var/lib/guacd
+  
+  # Update paths for tomcat10
+  ln -s /etc/guacamole/guacamole.properties /usr/share/tomcat10/.guacamole/
+  ln -s /etc/guacamole/user-mapping.xml /usr/share/tomcat10/.guacamole/
+
+  echo "[$(date +%H:%M:%S)]: Setting up guacd user..."
+  useradd -M -d /var/lib/guacd/ -r -s /sbin/nologin -c "Guacd User" guacd || echo "Guacd user already exists"
+  mkdir -p /var/lib/guacd
   chown -R guacd: /var/lib/guacd
+
+  echo "[$(date +%H:%M:%S)]: Enabling and starting services..."
   systemctl daemon-reload
   systemctl enable guacd
-  systemctl enable tomcat9
+  systemctl enable tomcat10
   systemctl start guacd
-  systemctl start tomcat9
-  echo "[$(date +%H:%M:%S)]: Guacamole installation complete!"
+  systemctl start tomcat10
+
+  if systemctl is-active --quiet guacd && systemctl is-active --quiet tomcat10; then
+    echo "[$(date +%H:%M:%S)]: Guacamole installation complete!"
+  else
+    echo "[-] An error occurred while starting services."
+    systemctl status guacd
+    systemctl status tomcat10
+    exit 1
+  fi
 }
 
 configure_splunk_inputs() {
@@ -605,13 +757,16 @@ configure_splunk_inputs() {
   /opt/splunk/bin/splunk add monitor "/var/log/fleet/osquery_result" -index osquery -sourcetype 'osquery:json' -auth 'admin:changeme' --accept-license --answer-yes --no-prompt
   /opt/splunk/bin/splunk add monitor "/var/log/fleet/osquery_status" -index osquery-status -sourcetype 'osquery:status' -auth 'admin:changeme' --accept-license --answer-yes --no-prompt
 
-  # Zeek
-  mkdir -p /opt/splunk/etc/apps/Splunk_TA_bro/local && touch /opt/splunk/etc/apps/Splunk_TA_bro/local/inputs.conf
-  crudini --set /opt/splunk/etc/apps/Splunk_TA_bro/local/inputs.conf monitor:///opt/zeek/spool/manager index zeek
-  crudini --set /opt/splunk/etc/apps/Splunk_TA_bro/local/inputs.conf monitor:///opt/zeek/spool/manager sourcetype zeek:json
-  crudini --set /opt/splunk/etc/apps/Splunk_TA_bro/local/inputs.conf monitor:///opt/zeek/spool/manager whitelist '.*\.log$'
-  crudini --set /opt/splunk/etc/apps/Splunk_TA_bro/local/inputs.conf monitor:///opt/zeek/spool/manager blacklist '.*(communication|stderr)\.log$'
-  crudini --set /opt/splunk/etc/apps/Splunk_TA_bro/local/inputs.conf monitor:///opt/zeek/spool/manager disabled 0
+  # Zeek - using direct file method instead of crudini to avoid escape issues
+  mkdir -p /opt/splunk/etc/apps/Splunk_TA_bro/local
+  cat > /opt/splunk/etc/apps/Splunk_TA_bro/local/inputs.conf << EOF
+[monitor:///opt/zeek/spool/manager]
+index = zeek
+sourcetype = zeek:json
+whitelist = .*\.log$
+blacklist = .*communication\.log$|.*stderr\.log$
+disabled = 0
+EOF
 
   # Ensure permissions are correct and restart splunk
   chown -R splunk:splunk /opt/splunk/etc/apps/Splunk_TA_bro
@@ -619,6 +774,7 @@ configure_splunk_inputs() {
 }
 
 main() {
+  configure_dns
   apt_install_prerequisites
   modify_motd
   test_prerequisites

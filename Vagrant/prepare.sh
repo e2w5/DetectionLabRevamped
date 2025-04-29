@@ -201,7 +201,7 @@ check_vagrant_instances_exist() {
   if [ "$VAGRANT_BUILT" -ne 4 ]; then
     (echo >&2 "${INFO} You appear to have already created at least one Vagrant instance:")
     # shellcheck disable=SC2164
-    cd "$VAGRANT_DIR" && echo "$VAGRANT_STATUS_OUTPUT" | grep -v 'not created' | grep -E 'logger|dc|wef|win10' 
+    cd "$VAGRANT_DIR" && echo "$VAGRANT_STATUS_OUTPUT" | grep -v 'not created' | grep -E 'logger|dc|wef|win11' 
     (echo >&2 "${INFO} If you want to start with a fresh install, you should run \`vagrant destroy -f\` to remove existing instances.")
   else 
     (echo >&2 "${GOODTOGO} No Vagrant instances have been created yet")

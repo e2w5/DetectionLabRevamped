@@ -14,8 +14,8 @@ output "wef_public_ip" {
   value = azurerm_public_ip.wef-publicip.ip_address
 }
 
-output "win10_public_ip" {
-  value = azurerm_public_ip.win10-publicip.ip_address 
+output "win11_public_ip" {
+  value = azurerm_public_ip.win11-publicip.ip_address 
 }
 
 output "fleet_url" {

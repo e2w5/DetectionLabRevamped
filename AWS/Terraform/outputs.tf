@@ -18,8 +18,8 @@ output "wef_public_ip" {
   value = aws_instance.wef.public_ip
 }
 
-output "win10_public_ip" {
-  value = aws_instance.win10.public_ip
+output "win11_public_ip" {
+  value = aws_instance.win11.public_ip
 }
 
 output "fleet_url" {

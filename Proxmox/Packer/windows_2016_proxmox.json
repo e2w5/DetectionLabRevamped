@@ -13,7 +13,7 @@
         "cores": 2,  
         "cpu_type": "host",
         "memory": 4096,
-        "os": "win10",
+        "os": "win11",
         "network_adapters": [
           {
             "model": "virtio",

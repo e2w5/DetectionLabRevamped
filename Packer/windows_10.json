@@ -195,6 +195,6 @@
     "disk_size": "61440",
     "virtio_win_iso": "./virtio-win.iso",
     "autounattend_virtio": "./answer_files/10_virtio/Autounattend.xml",
-    "packer_build_dir": "./win10"
+    "packer_build_dir": "./win11"
   }
 }

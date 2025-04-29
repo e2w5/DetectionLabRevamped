@@ -37,7 +37,7 @@ resource "azurerm_subnet" "detectionlab-subnet" {
   name                 = "DetectionLab-Subnet"
   resource_group_name  = azurerm_resource_group.detectionlab.name
   virtual_network_name = azurerm_virtual_network.detectionlab-network.name
-  address_prefixes       = ["192.168.56.0/24"]
+  address_prefixes       = ["192.168.57.0/24"]
 }
 
 resource "azurerm_network_security_group" "detectionlab-nsg" {
@@ -133,7 +133,7 @@ resource "azurerm_network_security_group" "detectionlab-nsg" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "*"
-    source_address_prefix      = "192.168.56.0/24"
+    source_address_prefix      = "192.168.57.0/24"
     destination_address_prefix = "*"
   }
 
@@ -189,7 +189,7 @@ resource "azurerm_network_interface" "logger-nic" {
     name                          = "logger-NicConfiguration"
     subnet_id                     = azurerm_subnet.detectionlab-subnet.id
     private_ip_address_allocation = "Static"
-    private_ip_address            = "192.168.56.105"
+    private_ip_address            = "192.168.57.105"
     public_ip_address_id          = azurerm_public_ip.logger-publicip.id
   }
 }
@@ -322,7 +322,7 @@ resource "azurerm_network_interface" "dc-nic" {
     name                          = "DC-NicConfiguration"
     subnet_id                     = azurerm_subnet.detectionlab-subnet.id
     private_ip_address_allocation = "Static"
-    private_ip_address            = "192.168.56.102"
+    private_ip_address            = "192.168.57.102"
     public_ip_address_id          = azurerm_public_ip.dc-publicip.id
   }
 }
@@ -347,7 +347,7 @@ resource "azurerm_network_interface" "wef-nic" {
     name                          = "WEF-NicConfiguration"
     subnet_id                     = azurerm_subnet.detectionlab-subnet.id
     private_ip_address_allocation = "Static"
-    private_ip_address            = "192.168.56.103"
+    private_ip_address            = "192.168.57.103"
     public_ip_address_id          = azurerm_public_ip.wef-publicip.id
   }
 }
@@ -363,8 +363,8 @@ resource "azurerm_public_ip" "wef-publicip" {
   }
 }
 
-resource "azurerm_network_interface" "win10-nic" {
-  name = "win10-nic"
+resource "azurerm_network_interface" "win11-nic" {
+  name = "win11-nic"
   location = var.region
   resource_group_name  = azurerm_resource_group.detectionlab.name
 
@@ -372,19 +372,19 @@ resource "azurerm_network_interface" "win10-nic" {
     name                          = "myNicConfiguration"
     subnet_id                     = azurerm_subnet.detectionlab-subnet.id
     private_ip_address_allocation = "Static"
-    private_ip_address            = "192.168.56.104"
-    public_ip_address_id          = azurerm_public_ip.win10-publicip.id
+    private_ip_address            = "192.168.57.104"
+    public_ip_address_id          = azurerm_public_ip.win11-publicip.id
   }
 }
 
-resource "azurerm_public_ip" "win10-publicip" {
-  name                = "win10-public-ip"
+resource "azurerm_public_ip" "win11-publicip" {
+  name                = "win11-public-ip"
   location            = var.region
   resource_group_name = azurerm_resource_group.detectionlab.name
   allocation_method   = "Static"
 
   tags = {
-    role = "win10"
+    role = "win11"
   }
 }
 
@@ -546,11 +546,11 @@ PROTECTED_SETTINGS
 }
 */
 
-resource "azurerm_virtual_machine" "win10" {
-  name = "win10.windomain.local"
+resource "azurerm_virtual_machine" "win11" {
+  name = "win11.windomain.local"
   location = var.region
   resource_group_name  = azurerm_resource_group.detectionlab.name
-  network_interface_ids = [azurerm_network_interface.win10-nic.id]
+  network_interface_ids = [azurerm_network_interface.win11-nic.id]
   vm_size               = "Standard_D1_v2"
 
   delete_os_disk_on_termination = true
@@ -563,7 +563,7 @@ resource "azurerm_virtual_machine" "win10" {
   }
 
   os_profile {
-    computer_name  = "win10"
+    computer_name  = "win11"
     admin_username = "vagrant"
     admin_password = "Vagrant123"
     custom_data    = local.custom_data_content
@@ -592,14 +592,14 @@ resource "azurerm_virtual_machine" "win10" {
   }
 
   storage_os_disk {
-    name              = "OsDiskWin10"
+    name              = "OsDiskwin11"
     caching           = "ReadWrite"
     create_option     = "FromImage"
     managed_disk_type = "Standard_LRS"
   }
 
   tags = {
-    role = "win10"
+    role = "win11"
   }
 }
 
@@ -609,7 +609,7 @@ resource "local_file" "inventory" {
       {
         dc_public_ip = azurerm_public_ip.dc-publicip.ip_address
         wef_public_ip = azurerm_public_ip.wef-publicip.ip_address
-        win10_public_ip = azurerm_public_ip.win10-publicip.ip_address
+        win11_public_ip = azurerm_public_ip.win11-publicip.ip_address
       }
     )
     filename = "../Ansible/inventory.yml"
@@ -617,9 +617,9 @@ resource "local_file" "inventory" {
 
 # Uncomment the following lines if you want to use Azure Log Analytics and Azure Sentinel
 /*
-resource "azurerm_virtual_machine_extension" "mmaagent-Win10" {
-  name                 = "${azurerm_virtual_machine.win10.name}-mma"
-  virtual_machine_id   = azurerm_virtual_machine.win10.id
+resource "azurerm_virtual_machine_extension" "mmaagent-win11" {
+  name                 = "${azurerm_virtual_machine.win11.name}-mma"
+  virtual_machine_id   = azurerm_virtual_machine.win11.id
   publisher            = "Microsoft.EnterpriseCloud.Monitoring"
   type                 = "MicrosoftMonitoringAgent"
   type_handler_version = "1.0"

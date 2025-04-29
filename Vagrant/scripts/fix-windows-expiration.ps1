@@ -24,7 +24,7 @@ Elseif ($regex.Matches.Value -eq "0xC004FC07") {
   }
 }
 
-# If activation was successful, the regex should match 90 or 180 (Win10 or Win2016)
+# If activation was successful, the regex should match 90 or 180 (win11 or Win2016)
 $regex = cscript c:\windows\system32\slmgr.vbs /dlv | select-string -Pattern "\((\d+) day\(s\)"
 
 Try {

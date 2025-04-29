@@ -48,7 +48,7 @@ resource "esxi_guest" "logger" {
     mac_address     = "00:50:56:a3:b1:c2"
     nic_type        = "e1000"
   }
-  # This is the local network that will be used for 192.168.56.x addressing
+  # This is the local network that will be used for 192.168.57.x addressing
   network_interfaces {
     virtual_network = var.hostonly_network
     mac_address     = "00:50:56:a3:b1:c4"
@@ -83,7 +83,7 @@ resource "esxi_guest" "dc" {
     mac_address     = "00:50:56:a1:b1:c2"
     nic_type        = "e1000"
   }
-  # This is the local network that will be used for 192.168.56.x addressing
+  # This is the local network that will be used for 192.168.57.x addressing
   network_interfaces {
     virtual_network = var.hostonly_network
     mac_address     = "00:50:56:a1:b1:c4"
@@ -111,7 +111,7 @@ resource "esxi_guest" "wef" {
     mac_address     = "00:50:56:a1:b2:c2"
     nic_type        = "e1000"
   }
-  # This is the local network that will be used for 192.168.56.x addressing
+  # This is the local network that will be used for 192.168.57.x addressing
   network_interfaces {
     virtual_network = var.hostonly_network
     mac_address     = "00:50:56:a1:b4:c4"
@@ -121,8 +121,8 @@ resource "esxi_guest" "wef" {
   guest_shutdown_timeout = 30
 }
 
-resource "esxi_guest" "win10" {
-  guest_name = "win10"
+resource "esxi_guest" "win11" {
+  guest_name = "win11"
   disk_store = var.esxi_datastore
   guestos    = "windows9-64"
 
@@ -139,7 +139,7 @@ resource "esxi_guest" "win10" {
     mac_address     = "00:50:56:a2:b1:c2"
     nic_type        = "e1000"
   }
-  # This is the local network that will be used for 192.168.56.x addressing
+  # This is the local network that will be used for 192.168.57.x addressing
   network_interfaces {
     virtual_network = var.hostonly_network
     mac_address     = "00:50:56:a2:b1:c4"
