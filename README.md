@@ -1,5 +1,5 @@
-##Updates
--------
+## Updates
+
 - VMware Workstation was upgraded to version 17.5 to ensure compatibility and access to the latest features.
 
 - The logger virtual machine was upgraded from Ubuntu 20.04 to Ubuntu 24.04.
@@ -17,38 +17,38 @@
 - Tested Only with VMWare Workstation 17.6
 
 
-##TLDR; Installation
-------------------
-###download vagrant and install
+## TLDR; Installation
+
+### download vagrant and install
 ```
 https://developer.hashicorp.com/vagrant/downloads
 ```
 
-#install vmware desktop plugin
+### install vmware desktop plugin
 ```
 vagrant plugin install vagrant-vmware-desktop
 ```
 
-#download and install vagrant vmware utility
+### download and install vagrant vmware utility
 ```
 https://developer.hashicorp.com/vagrant/install/vmware
 net.exe start vagrant-vmware-utility
 ```
 
-#disable all network interfaces of unused hypervisor (vmare/virtualbox, the one you dont use)
+### disable all network interfaces of unused hypervisor (vmare/virtualbox, the one you dont use)
 
-#clone the repo
+### clone the repo
 ```
 git clone https://github.com/hasamba/DetectionLabRevamped.git
 cd DetectionLabRevamped/Vagrant
 ```
 
-#RUN AS ADMIN
+### RUN AS ADMIN
 ```
 .\prepare.ps1
 ```
 
-#DO NOT RUN AS ADMIN
+### DO NOT RUN AS ADMIN
 ```
 vagrant up --provider=vmware_desktop
 ```
@@ -62,14 +62,14 @@ vagrant up win11
 .\post_build_checks.ps1
 ```
 
-##Tips
-----
+## Tips
+
 - disable network adapters for the hypervisor you do NOT use, for example is installing with vmware than disable virtualbox network cards (if exists)
 - Install as non privileged user
 
 
-##Troubleshooting
----------------
+## Troubleshooting
+
 - Vagrant encountered an unexpected communications error with the Vagrant VMware Utility driver
   - check that vagrant-vmware-utility service is started
 - Vagrant service failed to start
