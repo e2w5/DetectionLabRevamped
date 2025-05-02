@@ -1,4 +1,5 @@
 # Purpose: Installs Mimikatz and Powersploit into c:\Tools\Mimikatz. Used to install redteam related tooling.
+$ErrorActionPreference = 'Continue'
 
 Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Installing Red Team Tooling..."
 $hostname = $(hostname)

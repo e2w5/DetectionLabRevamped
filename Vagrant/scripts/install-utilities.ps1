@@ -1,4 +1,5 @@
 # Purpose: Installs chocolatey package manager, then installs custom utilities from Choco.
+$ErrorActionPreference = 'Continue'
 
 # First check if .NET Framework 4.8 is already installed
 $netKey = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full" -ErrorAction SilentlyContinue
@@ -27,7 +28,7 @@ If (-not (Test-Path "C:\ProgramData\chocolatey")) {
   Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Installing Chocolatey"
   
   # Use the official Chocolatey installation method that doesn't rely on their install.ps1
-  Set-ExecutionPolicy Bypass -Scope Process -Force
+  Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
   [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
   Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 } else {
@@ -47,3 +48,4 @@ choco install -y --limit-output --no-progress NotepadPlusPlus WinRar processhack
 choco install -y --limit-output --no-progress --ignore-checksums GoogleChrome 
 
 Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Utilties installation complete!"
+exit 0
