@@ -81,6 +81,8 @@ vagrant up win11
   - try vagrant reload MACHINE_NAME —provision or vagrant destroy MACHINE_NAME -f;vagrant up MACHINE_NAME
 - if all fail and you want a fresh install
   - delete the hidden folder .vagrant under vagrant and start again
+- if vagrant keeps on failing with provisioning
+  - enter the machine via winrm (enter-pssession -ComputerName MACHINE-DHCP-IP -Credential (Get-Credential) -Authentication Basic) and run all scripts as in vagrantfile
 
 
 
