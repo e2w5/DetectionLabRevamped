@@ -7,4 +7,3 @@ if (Test-Path $atomicModule) {
   }
   $PSDefaultParameterValues['Invoke-AtomicTest:PathToAtomicsFolder'] = 'C:\Tools\AtomicRedTeam\atomics'
 }
-$env:Path += ';c:\Program Files\osquery'

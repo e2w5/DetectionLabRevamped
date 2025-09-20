@@ -6,11 +6,35 @@ $hostsFile = "c:\Windows\System32\drivers\etc\hosts"
 Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Joining the domain..."
 
 Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) First, set DNS to DC to join the domain..."
-$newDNSServers = "192.168.57.102"
-$adapters = Get-WmiObject Win32_NetworkAdapterConfiguration | Where-Object {$_.IPAddress -match "192.168.57."}
-# Don't do this in Azure. If the network adatper description contains "Hyper-V", this won't apply changes.
-# Specify the DC as a WINS server to help with connectivity as well
-$adapters | ForEach-Object {if (!($_.Description).Contains("Hyper-V")) {$_.SetDNSServerSearchOrder($newDNSServers); $_.SetWINSServer($newDNSServers, "")}}
+$dcIP = "192.168.57.102"
+$subnetPrefix = "192.168.57."
+try {
+  $ifaces = Get-NetIPConfiguration -ErrorAction Stop | Where-Object { $_.IPv4Address.IPAddress -like "$subnetPrefix*" }
+  foreach ($if in $ifaces) { Set-DnsClientServerAddress -InterfaceIndex $if.InterfaceIndex -ServerAddresses $dcIP -ErrorAction SilentlyContinue }
+} catch {
+  # Fallback for older shells
+  $adapters = Get-WmiObject Win32_NetworkAdapterConfiguration | Where-Object { $_.IPAddress -match "^$subnetPrefix" }
+  $adapters | ForEach-Object { if (!($_.Description).Contains("Hyper-V")) { $_.SetDNSServerSearchOrder($dcIP); $_.SetWINSServer($dcIP, "") } }
+}
+
+Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Verifying domain controller reachability (DNS/LDAP/Kerberos)..."
+# Retry for up to ~5 minutes
+for ($i=1; $i -le 30; $i++) {
+  $ok = $false
+  try { if (Test-Connection -ComputerName $dcIP -Count 1 -Quiet) { $ok = $true } } catch {}
+  try { if (Resolve-DnsName -Server $dcIP windomain.local -ErrorAction Stop) { $ok = $ok -and $true } else { $ok = $false } } catch { $ok = $false }
+  try {
+    $ldap = Test-NetConnection -ComputerName $dcIP -Port 389 -InformationLevel Quiet
+    $krb = Test-NetConnection -ComputerName $dcIP -Port 88 -InformationLevel Quiet
+    $ok = $ok -and $ldap -and $krb
+  } catch { $ok = $false }
+  if ($ok) { break }
+  if ($i -in 5,10,20) { Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Waiting for DC services... ($i/30)" }
+  Start-Sleep -Seconds 10
+}
+
+# Ensure time sync to avoid Kerberos skew issues
+try { w32tm /config /syncfromflags:manual /manualpeerlist:$dcIP /update | Out-Null; w32tm /resync /force | Out-Null } catch {}
 
 Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Now join the domain..."
 $hostname = $(hostname)
@@ -49,7 +73,7 @@ If (($hostname -eq "wef") -or ($hostname -eq "exchange")) {
       Break
     } Catch {
       $tries += 1
-      ping -c 1 windomain.local
+      ping -n 1 windomain.local
       ipconfig /all
       Write-Host $_.Exception.Message
       Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Sleeping 10s before trying again..."

@@ -27,8 +27,16 @@ If (-not (Test-Path "C:\ProgramData\chocolatey")) {
   [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
   Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Installing Chocolatey"
   
-  # Use the official Chocolatey installation method that doesn't rely on their install.ps1
-  Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
+  # Use the official Chocolatey installation method. ExecutionPolicy may be GPO‑enforced; skip gracefully if overridden.
+  try {
+    $epList = Get-ExecutionPolicy -List | Format-Table -HideTableHeaders | Out-String
+    $hasPolicyOverride = ($epList -match 'MachinePolicy' -or $epList -match 'UserPolicy')
+  } catch { $hasPolicyOverride = $false }
+  if (-not $hasPolicyOverride) {
+    try { Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction Stop } catch { Write-Host "[$('[{0:HH:mm}]' -f (Get-Date))] Skipping Set-ExecutionPolicy: $($_.Exception.Message)" }
+  } else {
+    Write-Host "[$('[{0:HH:mm}]' -f (Get-Date))] ExecutionPolicy is enforced by policy; skipping Set-ExecutionPolicy"
+  }
   [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
   Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 } else {

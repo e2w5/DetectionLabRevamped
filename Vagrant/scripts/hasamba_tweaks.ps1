@@ -209,15 +209,15 @@ Remove-Item -Recurse -Force -ErrorAction SilentlyContinue "$env:localappdata\Mic
 Remove-Item -Recurse -Force -ErrorAction SilentlyContinue "$env:localappdata\OneDrive"
 Remove-Item -Recurse -Force -ErrorAction SilentlyContinue "$env:programdata\Microsoft OneDrive"
 Remove-Item -Recurse -Force -ErrorAction SilentlyContinue "$env:systemdrive\OneDriveTemp"
-reg delete "HKEY_CURRENT_USER\Software\Microsoft\OneDrive" -f
+reg delete "HKEY_CURRENT_USER\Software\Microsoft\OneDrive" /f
 # check if directory is empty before removing:
 If ((Get-ChildItem "$OneDrivePath" -Recurse | Measure-Object).Count -eq 0) {
     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue "$OneDrivePath"
 }
 
 Write-Host "Remove Onedrive from explorer sidebar"
-Set-ItemProperty -Path "HKCR:\CLSID\{018D5C66-4533-4307-9B53-224DE2ED1FE6}" -Name "System.IsPinnedToNameSpaceTree" -Value 0
-Set-ItemProperty -Path "HKCR:\Wow6432Node\CLSID\{018D5C66-4533-4307-9B53-224DE2ED1FE6}" -Name "System.IsPinnedToNameSpaceTree" -Value 0
+Set-ItemProperty -LiteralPath "Registry::HKEY_CLASSES_ROOT\CLSID\{018D5C66-4533-4307-9B53-224DE2ED1FE6}" -Name "System.IsPinnedToNameSpaceTree" -Value 0
+Set-ItemProperty -LiteralPath "Registry::HKEY_CLASSES_ROOT\Wow6432Node\CLSID\{018D5C66-4533-4307-9B53-224DE2ED1FE6}" -Name "System.IsPinnedToNameSpaceTree" -Value 0
 
 Write-Host "Removing run hook for new users"
 reg load "hku\Default" "C:\Users\Default\NTUSER.DAT"

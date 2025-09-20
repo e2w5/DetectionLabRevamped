@@ -4,6 +4,73 @@ $ErrorActionPreference = 'Continue'
 Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Installing Red Team Tooling..."
 $hostname = $(hostname)
 
+$atomicRoot = 'C:\Tools\AtomicRedTeam'
+$atomicsPath = Join-Path $atomicRoot 'atomics'
+$atomicModulePath = Join-Path $atomicRoot 'invoke-atomicredteam\Invoke-AtomicRedTeam.psd1'
+
+function Install-AtomicRedTeamManual {
+  param([string]$Root)
+
+  $tempDir = Join-Path $env:TEMP 'atomic-red-team-temp'
+  $zipPath = Join-Path $env:TEMP 'atomic-red-team.zip'
+  $moduleZipPath = Join-Path $env:TEMP 'invoke-atomicredteam.zip'
+  $moduleExtractRoot = Join-Path $env:TEMP 'invoke-atomicredteam-src'
+
+  Remove-Item -LiteralPath $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+  Remove-Item -LiteralPath $zipPath -Force -ErrorAction SilentlyContinue
+  Remove-Item -LiteralPath $moduleZipPath -Force -ErrorAction SilentlyContinue
+  Remove-Item -LiteralPath $moduleExtractRoot -Recurse -Force -ErrorAction SilentlyContinue
+
+  try {
+    $downloadUrl = 'https://codeload.github.com/redcanaryco/atomic-red-team/zip/refs/heads/master'
+    Invoke-WebRequest -Uri $downloadUrl -OutFile $zipPath -UseBasicParsing
+    Expand-Archive -Path $zipPath -DestinationPath $tempDir -Force
+
+    $extractedRoot = Get-ChildItem -Path $tempDir -Directory | Select-Object -First 1
+    if (-not $extractedRoot) { throw 'Failed to extract atomic red team archive.' }
+
+    if (Test-Path $Root) { Remove-Item -LiteralPath $Root -Recurse -Force }
+    New-Item -Path $Root -ItemType Directory -Force | Out-Null
+
+    $atomicsSource = Get-ChildItem -Path $extractedRoot.FullName -Directory -Filter 'atomics' -Recurse | Select-Object -First 1
+    if (-not $atomicsSource) { throw 'Could not locate atomics folder in archive.' }
+    Copy-Item -Path $atomicsSource.FullName -Destination (Join-Path $Root 'atomics') -Recurse -Force
+
+    $moduleCommit = 'cdac4232e6f2df4ab8912a8d5d5845c3a4b9d8f9'
+    $moduleZipUrl = "https://github.com/redcanaryco/invoke-atomicredteam/archive/$moduleCommit.zip"
+    Invoke-WebRequest -Uri $moduleZipUrl -OutFile $moduleZipPath -UseBasicParsing
+    Expand-Archive -Path $moduleZipPath -DestinationPath $moduleExtractRoot -Force
+
+    $moduleSource = Join-Path $moduleExtractRoot ('invoke-atomicredteam-' + $moduleCommit)
+    $moduleDest = Join-Path $Root 'invoke-atomicredteam'
+    if (Test-Path $moduleDest) { Remove-Item -LiteralPath $moduleDest -Recurse -Force }
+    Copy-Item -Path $moduleSource -Destination $moduleDest -Recurse -Force
+  } finally {
+    Remove-Item -LiteralPath $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $zipPath -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $moduleZipPath -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $moduleExtractRoot -Recurse -Force -ErrorAction SilentlyContinue
+  }
+}
+
+function Test-AtomicRedTeamInstall {
+  param([string]$Root)
+
+  $modulePath = Join-Path $Root 'invoke-atomicredteam\Invoke-AtomicRedTeam.psd1'
+  $atomicsFolder = Join-Path $Root 'atomics'
+
+  if (-not (Test-Path $modulePath)) { return $false }
+  if (-not (Test-Path $atomicsFolder)) { return $false }
+
+  try {
+    $yaml = Get-ChildItem -Path $atomicsFolder -Filter '*.yaml' -Recurse -ErrorAction Stop | Select-Object -First 1
+    return [bool]$yaml
+  } catch {
+    return $false
+  }
+}
+
+
 # Disabling the progress bar speeds up IWR https://github.com/PowerShell/PowerShell/issues/2138
 $ProgressPreference = 'SilentlyContinue'
 # GitHub requires TLS 1.2 as of 2/27
@@ -77,17 +144,90 @@ If (-not (Test-Path $badbloodRepoPath)) {
 
 # Download and install Invoke-AtomicRedTeam
 Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Downloading Invoke-AtomicRedTeam and atomic tests..."
-If (-not (Test-Path "C:\Tools\AtomicRedTeam")) {
-  Install-PackageProvider -Name NuGet -Force
-  Install-Module -Name powershell-yaml -Force
-  IEX (IWR 'https://raw.githubusercontent.com/redcanaryco/invoke-atomicredteam/master/install-atomicredteam.ps1' -UseBasicParsing);
-  Install-AtomicRedTeam -getAtomics -InstallPath "c:\Tools\AtomicRedTeam"
-  Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Updating Profile.ps1 to import the Invoke-AtomicRedTeam module..."
-  Add-Content -Path C:\Windows\System32\WindowsPowerShell\v1.0\Profile.ps1 'Import-Module "C:\Tools\AtomicRedTeam\invoke-atomicredteam\Invoke-AtomicRedTeam.psd1" -Force
-$PSDefaultParameterValues = @{"Invoke-AtomicTest:PathToAtomicsFolder"="C:\Tools\AtomicRedTeam\atomics"}' -Force
-} Else {
-  Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Invoke-AtomicRedTeam was already installed. Moving On."
+$needsAtomicInstall = -not (Test-AtomicRedTeamInstall -Root $atomicRoot)
+
+if ($needsAtomicInstall) {
+  Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Installing Invoke-AtomicRedTeam via standard installer..."
+  if (Test-Path $atomicRoot) {
+    Write-Warning "$('[{0:HH:mm}]' -f (Get-Date)) Existing Atomic Red Team install appears incomplete. Reinstalling..."
+    Remove-Item -LiteralPath $atomicRoot -Recurse -Force -ErrorAction SilentlyContinue
+  }
+
+  $installSucceeded = $false
+  try {
+    Install-PackageProvider -Name NuGet -Force
+    Install-Module -Name powershell-yaml -Force
+    IEX (IWR 'https://raw.githubusercontent.com/redcanaryco/invoke-atomicredteam/master/install-atomicredteam.ps1' -UseBasicParsing);
+    Install-AtomicRedTeam -getAtomics -InstallPath $atomicRoot -ErrorAction Stop
+    $installSucceeded = Test-AtomicRedTeamInstall -Root $atomicRoot
+  } catch {
+    Write-Warning ("$('[{0:HH:mm}]' -f (Get-Date)) Standard Invoke-AtomicRedTeam installer failed: {0}" -f $_.Exception.Message)
+    $installSucceeded = $false
+  }
+
+  if (-not $installSucceeded) {
+    Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Falling back to manual Atomic Red Team download..."
+    Install-AtomicRedTeamManual -Root $atomicRoot
+    $installSucceeded = Test-AtomicRedTeamInstall -Root $atomicRoot
+  }
+
+  if (-not $installSucceeded) {
+    throw 'Invoke-AtomicRedTeam installation failed after retry.'
+  }
+} else {
+  Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Invoke-AtomicRedTeam already installed. Moving On."
 }
+
+$profilePaths = @('C:\Windows\System32\WindowsPowerShell\v1.0\Profile.ps1', (Join-Path $env:USERPROFILE 'Documents\WindowsPowerShell\profile.ps1'))
+$moduleSnippet = @'
+$atomicModule = 'C:\Tools\AtomicRedTeam\invoke-atomicredteam\Invoke-AtomicRedTeam.psd1'
+if (Test-Path $atomicModule) {
+  try {
+    Import-Module $atomicModule -Force -ErrorAction Stop
+  } catch {
+    Write-Verbose ("Invoke-AtomicRedTeam module at {0} failed to load: {1}" -f $atomicModule, $_.Exception.Message)
+  }
+}
+'@.Trim()
+$defaultSnippet = '$PSDefaultParameterValues = @{"Invoke-AtomicTest:PathToAtomicsFolder"="C:\Tools\AtomicRedTeam\atomics"}'
+$legacyImportStatements = @(
+  'Import-Module "C:\Tools\AtomicRedTeam\invoke-atomicredteam\Invoke-AtomicRedTeam.psd1" -Force',
+  'Import-Module "C:\Tools\Atomic Red Team\atomic-red-team-master\execution-frameworks\Invoke-AtomicRedTeam\Invoke-AtomicRedTeam\Invoke-AtomicRedTeam.psm1"'
+)
+foreach ($profilePath in $profilePaths) {
+  $profileDirectory = Split-Path -Path $profilePath -Parent
+  if ($profileDirectory -and -not (Test-Path $profileDirectory)) {
+    New-Item -ItemType Directory -Path $profileDirectory -Force | Out-Null
+  }
+
+  $profileContent = if (Test-Path $profilePath) { Get-Content -Path $profilePath -Raw } else { '' }
+
+  if ($profileContent) {
+    foreach ($legacyImport in $legacyImportStatements) {
+      $escapedLegacyImport = [regex]::Escape($legacyImport)
+      $profileContent = [regex]::Replace($profileContent, "(?m)^\s*$escapedLegacyImport\s*(\r?\n)?", '')
+    }
+  }
+
+  if ($profileContent -notmatch [regex]::Escape($moduleSnippet)) {
+    if ($profileContent.Length -gt 0 -and -not $profileContent.EndsWith("`r`n")) {
+      $profileContent += "`r`n"
+    }
+
+    $profileContent += $moduleSnippet + "`r`n"
+  }
+
+  if ($profileContent -notmatch 'Invoke-AtomicTest:PathToAtomicsFolder') {
+    if ($profileContent.Length -gt 0 -and -not $profileContent.EndsWith("`r`n")) {
+      $profileContent += "`r`n"
+    }
+
+    $profileContent += $defaultSnippet + "`r`n"
+  }
+
+  Set-Content -Path $profilePath -Value ($profileContent.TrimEnd() + "`r`n")
+}
+
 
 # Purpose: Downloads the latest release of PurpleSharpNewtonsoft.Json.dll
 If (-not (Test-Path "c:\Tools\PurpleSharp")) {

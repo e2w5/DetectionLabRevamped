@@ -135,140 +135,168 @@ EOF
   done
 }
 install_splunk() {
-  # Check if Splunk is already installed
-  if [ -f "/opt/splunk/bin/splunk" ]; then
-    echo "[$(date +%H:%M:%S)]: Splunk is already installed"
+  if [ -x "/opt/splunk/bin/splunk" ]; then
+    SPLUNK_INSTALLED=1
+    CURRENT_VERSION=$(/opt/splunk/bin/splunk version 2>/dev/null | awk '{print $2}')
+    echo "[$(date +%H:%M:%S)]: Splunk is already installed (version ${CURRENT_VERSION:-unknown})"
   else
-    echo "[$(date +%H:%M:%S)]: Installing Splunk..."
-    # Get download.splunk.com into the DNS cache. Sometimes resolution randomly fails during wget below
-    dig @8.8.8.8 download.splunk.com >/dev/null
-    dig @8.8.8.8 splunk.com >/dev/null
-    dig @8.8.8.8 www.splunk.com >/dev/null
+    SPLUNK_INSTALLED=0
+    CURRENT_VERSION=""
+    echo "[$(date +%H:%M:%S)]: Splunk is not installed. Proceeding with installation..."
+  fi
 
-    # Try to resolve the latest version of Splunk by parsing the HTML on the downloads page
-    echo "[$(date +%H:%M:%S)]: Attempting to autoresolve the latest version of Splunk..."
-    LATEST_SPLUNK=$(curl https://www.splunk.com/en_us/download/splunk-enterprise.html | grep -i deb | grep -Eo "data-link=\"................................................................................................................................" | cut -d '"' -f 2)
-    # Sanity check what was returned from the auto-parse attempt
-    if [[ "$(echo "$LATEST_SPLUNK" | grep -c "^https:")" -eq 1 ]] && [[ "$(echo "$LATEST_SPLUNK" | grep -c "\.deb$")" -eq 1 ]]; then
-      echo "[$(date +%H:%M:%S)]: The URL to the latest Splunk version was automatically resolved as: $LATEST_SPLUNK"
-      echo "[$(date +%H:%M:%S)]: Attempting to download..."
-      wget --progress=bar:force -P /opt "$LATEST_SPLUNK"
+  # Get download.splunk.com into the DNS cache. Sometimes resolution randomly fails during wget below
+  dig @8.8.8.8 download.splunk.com >/dev/null
+  dig @8.8.8.8 splunk.com >/dev/null
+  dig @8.8.8.8 www.splunk.com >/dev/null
+
+  # Try to resolve the latest version of Splunk by parsing the HTML on the downloads page
+  echo "[$(date +%H:%M:%S)]: Attempting to autoresolve the latest version of Splunk..."
+  SPLUNK_FALLBACK_VERSION="10.0.0"
+  SPLUNK_FALLBACK_BUILD="e8eb0c4654f8"
+  SPLUNK_FALLBACK_URL="https://download.splunk.com/products/splunk/releases/${SPLUNK_FALLBACK_VERSION}/linux/splunk-${SPLUNK_FALLBACK_VERSION}-${SPLUNK_FALLBACK_BUILD}-linux-amd64.deb"
+  LATEST_SPLUNK=$(python3 - 2>/dev/null <<'PY'
+import re, sys, urllib.request
+try:
+    with urllib.request.urlopen('https://www.splunk.com/en_us/download/splunk-enterprise.html', timeout=30) as resp:
+        html = resp.read().decode('utf-8', 'ignore')
+except Exception:
+    sys.exit(0)
+match = re.search(r'data-link="(https://download\.splunk\.com/products/splunk/releases/[0-9.]+/linux/splunk-[^"]+-linux-amd64\.deb)"', html)
+if match:
+    print(match.group(1))
+PY
+)
+
+  if [[ -n "$LATEST_SPLUNK" ]]; then
+    DOWNLOAD_URL="$LATEST_SPLUNK"
+    echo "[$(date +%H:%M:%S)]: The URL to the latest Splunk version was automatically resolved as: $DOWNLOAD_URL"
+  else
+    DOWNLOAD_URL="$SPLUNK_FALLBACK_URL"
+    echo "[$(date +%H:%M:%S)]: Unable to auto-resolve the latest Splunk version. Falling back to: $DOWNLOAD_URL"
+  fi
+
+  # Ensure we don't install an older cached package
+  rm -f /opt/splunk-*-linux-amd64.deb
+  SPLUNK_DEB_PATH="/opt/$(basename "$DOWNLOAD_URL")"
+  TARGET_VERSION=$(basename "$DOWNLOAD_URL" | cut -d'-' -f2)
+  echo "[$(date +%H:%M:%S)]: Downloading Splunk package from $DOWNLOAD_URL..."
+  wget --progress=bar:force -O "$SPLUNK_DEB_PATH" "$DOWNLOAD_URL"
+
+  if ! ls /opt/splunk*.deb 1>/dev/null 2>&1; then
+    echo "Something went wrong while trying to download Splunk. This script cannot continue. Exiting."
+    exit 1
+  fi
+
+  INSTALL_REASON="fresh install"
+  INSTALL_REQUIRED=1
+  if [[ $SPLUNK_INSTALLED -eq 1 ]]; then
+    if [[ -n "$CURRENT_VERSION" ]] && [[ "$CURRENT_VERSION" == "$TARGET_VERSION" ]]; then
+      INSTALL_REQUIRED=0
+      echo "[$(date +%H:%M:%S)]: Splunk $CURRENT_VERSION is already installed. Skipping installer."
     else
-      echo "[$(date +%H:%M:%S)]: Unable to auto-resolve the latest Splunk version. Falling back to hardcoded URL..."
-      # Download Hardcoded Splunk - Using a more recent version compatible with Ubuntu 24.04
-      wget --progress=bar:force -O /opt/splunk-9.0.4-de405f4a7979-linux-2.6-amd64.deb 'https://download.splunk.com/products/splunk/releases/9.0.4/linux/splunk-9.0.4-de405f4a7979-linux-2.6-amd64.deb'
+      INSTALL_REASON="upgrade from ${CURRENT_VERSION:-unknown}"
+      echo "[$(date +%H:%M:%S)]: Upgrading Splunk from ${CURRENT_VERSION:-unknown} to $TARGET_VERSION..."
     fi
-    if ! ls /opt/splunk*.deb 1>/dev/null 2>&1; then
-      echo "Something went wrong while trying to download Splunk. This script cannot continue. Exiting."
-      exit 1
+  fi
+
+  if [[ $INSTALL_REQUIRED -eq 1 ]]; then
+    if [[ $SPLUNK_INSTALLED -eq 1 ]]; then
+      /opt/splunk/bin/splunk stop --accept-license --answer-yes --no-prompt || true
     fi
-    if ! dpkg -i /opt/splunk*.deb >/dev/null; then
+
+    if ! dpkg -i "$SPLUNK_DEB_PATH" >/dev/null; then
       echo "Something went wrong while trying to install Splunk. This script cannot continue. Exiting."
       exit 1
     fi
 
     /opt/splunk/bin/splunk start --accept-license --answer-yes --no-prompt --seed-passwd changeme
-    /opt/splunk/bin/splunk add index wineventlog -auth 'admin:changeme'
-    /opt/splunk/bin/splunk add index osquery -auth 'admin:changeme'
-    /opt/splunk/bin/splunk add index osquery-status -auth 'admin:changeme'
-    /opt/splunk/bin/splunk add index sysmon -auth 'admin:changeme'
-    /opt/splunk/bin/splunk add index powershell -auth 'admin:changeme'
-    /opt/splunk/bin/splunk add index zeek -auth 'admin:changeme'
-    /opt/splunk/bin/splunk add index suricata -auth 'admin:changeme'
-    /opt/splunk/bin/splunk add index threathunting -auth 'admin:changeme'
-    /opt/splunk/bin/splunk add index evtx_attack_samples -auth 'admin:changeme'
-    /opt/splunk/bin/splunk add index msexchange -auth 'admin:changeme'
-    /opt/splunk/bin/splunk install app /vagrant/resources/splunk_forwarder/splunk-add-on-for-microsoft-windows_700.tgz -auth 'admin:changeme'
-    /opt/splunk/bin/splunk install app /vagrant/resources/splunk_server/splunk-add-on-for-microsoft-sysmon_1062.tgz -auth 'admin:changeme'
-    /opt/splunk/bin/splunk install app /vagrant/resources/splunk_server/asn-lookup-generator_110.tgz -auth 'admin:changeme'
-    /opt/splunk/bin/splunk install app /vagrant/resources/splunk_server/lookup-file-editor_331.tgz -auth 'admin:changeme'
-    /opt/splunk/bin/splunk install app /vagrant/resources/splunk_server/splunk-add-on-for-zeek-aka-bro_400.tgz -auth 'admin:changeme'
-    /opt/splunk/bin/splunk install app /vagrant/resources/splunk_server/force-directed-app-for-splunk_200.tgz -auth 'admin:changeme'
-    /opt/splunk/bin/splunk install app /vagrant/resources/splunk_server/punchcard-custom-visualization_130.tgz -auth 'admin:changeme'
-    /opt/splunk/bin/splunk install app /vagrant/resources/splunk_server/sankey-diagram-custom-visualization_130.tgz -auth 'admin:changeme'
-    /opt/splunk/bin/splunk install app /vagrant/resources/splunk_server/link-analysis-app-for-splunk_161.tgz -auth 'admin:changeme'
-    /opt/splunk/bin/splunk install app /vagrant/resources/splunk_server/threathunting_1492.tgz -auth 'admin:changeme'
 
-    # Fix ASNGen App for Python 3 compatibility in Ubuntu 24.04
-    echo 'python.version = python3' >>/opt/splunk/etc/apps/TA-asngen/default/commands.conf
+    if [[ "$INSTALL_REASON" == "fresh install" ]]; then
+      /opt/splunk/bin/splunk add index wineventlog -auth 'admin:changeme'
+      /opt/splunk/bin/splunk add index osquery -auth 'admin:changeme'
+      /opt/splunk/bin/splunk add index osquery-status -auth 'admin:changeme'
+      /opt/splunk/bin/splunk add index sysmon -auth 'admin:changeme'
+      /opt/splunk/bin/splunk add index powershell -auth 'admin:changeme'
+      /opt/splunk/bin/splunk add index zeek -auth 'admin:changeme'
+      /opt/splunk/bin/splunk add index suricata -auth 'admin:changeme'
+      /opt/splunk/bin/splunk add index threathunting -auth 'admin:changeme'
+      /opt/splunk/bin/splunk add index evtx_attack_samples -auth 'admin:changeme'
+      /opt/splunk/bin/splunk add index msexchange -auth 'admin:changeme'
+      /opt/splunk/bin/splunk install app /vagrant/resources/splunk_forwarder/splunk-add-on-for-microsoft-windows_700.tgz -auth 'admin:changeme'
+      /opt/splunk/bin/splunk install app /vagrant/resources/splunk_server/splunk-add-on-for-microsoft-sysmon_1062.tgz -auth 'admin:changeme'
+      /opt/splunk/bin/splunk install app /vagrant/resources/splunk_server/asn-lookup-generator_110.tgz -auth 'admin:changeme'
+      /opt/splunk/bin/splunk install app /vagrant/resources/splunk_server/lookup-file-editor_331.tgz -auth 'admin:changeme'
+      /opt/splunk/bin/splunk install app /vagrant/resources/splunk_server/splunk-add-on-for-zeek-aka-bro_400.tgz -auth 'admin:changeme'
+      /opt/splunk/bin/splunk install app /vagrant/resources/splunk_server/force-directed-app-for-splunk_200.tgz -auth 'admin:changeme'
+      /opt/splunk/bin/splunk install app /vagrant/resources/splunk_server/punchcard-custom-visualization_130.tgz -auth 'admin:changeme'
+      /opt/splunk/bin/splunk install app /vagrant/resources/splunk_server/sankey-diagram-custom-visualization_130.tgz -auth 'admin:changeme'
+      /opt/splunk/bin/splunk install app /vagrant/resources/splunk_server/link-analysis-app-for-splunk_161.tgz -auth 'admin:changeme'
+      /opt/splunk/bin/splunk install app /vagrant/resources/splunk_server/threathunting_1492.tgz -auth 'admin:changeme'
+      echo 'python.version = python3' >>/opt/splunk/etc/apps/TA-asngen/default/commands.conf
 
-    # Install the Maxmind license key for the ASNgen App if it was provided
-    if [ -n "$MAXMIND_LICENSE" ]; then
-      mkdir -p /opt/splunk/etc/apps/TA-asngen/local
-      cp /opt/splunk/etc/apps/TA-asngen/default/asngen.conf /opt/splunk/etc/apps/TA-asngen/local/asngen.conf
-      sed -i "s/license_key =/license_key = $MAXMIND_LICENSE/g" /opt/splunk/etc/apps/TA-asngen/local/asngen.conf
-    fi
+      if [ -n "$MAXMIND_LICENSE" ]; then
+        mkdir -p /opt/splunk/etc/apps/TA-asngen/local
+        cp /opt/splunk/etc/apps/TA-asngen/default/asngen.conf /opt/splunk/etc/apps/TA-asngen/local/asngen.conf
+        sed -i "s/license_key =/license_key = $MAXMIND_LICENSE/g" /opt/splunk/etc/apps/TA-asngen/local/asngen.conf
+      fi
 
-    # Install a Splunk license if it was provided
-    if [ -n "$BASE64_ENCODED_SPLUNK_LICENSE" ]; then
-      echo "$BASE64_ENCODED_SPLUNK_LICENSE" | base64 -d >/tmp/Splunk.License
-      /opt/splunk/bin/splunk add licenses /tmp/Splunk.License -auth 'admin:changeme'
-      rm /tmp/Splunk.License
-    fi
+      if [ -n "$BASE64_ENCODED_SPLUNK_LICENSE" ]; then
+        echo "$BASE64_ENCODED_SPLUNK_LICENSE" | base64 -d >/tmp/Splunk.License
+        /opt/splunk/bin/splunk add licenses /tmp/Splunk.License -auth 'admin:changeme'
+        rm /tmp/Splunk.License
+      fi
 
-    # Replace the props.conf for Sysmon TA and Windows TA
-    # Removed all the 'rename = xmlwineventlog' directives
-    # I know youre not supposed to modify files in "default",
-    # but for some reason adding them to "local" wasnt working
-    cp /vagrant/resources/splunk_server/windows_ta_props.conf /opt/splunk/etc/apps/Splunk_TA_windows/default/props.conf
-    cp /vagrant/resources/splunk_server/sysmon_ta_props.conf /opt/splunk/etc/apps/TA-microsoft-sysmon/default/props.conf
-
-    # Add props.conf to Splunk Zeek TA to properly parse timestamp
-    # and avoid grouping events as a single event
-    mkdir -p /opt/splunk/etc/apps/Splunk_TA_bro/local && cp /vagrant/resources/splunk_server/zeek_ta_props.conf /opt/splunk/etc/apps/Splunk_TA_bro/local/props.conf
-
-    # Add custom Macro definitions for ThreatHunting App
-    cp /vagrant/resources/splunk_server/macros.conf /opt/splunk/etc/apps/ThreatHunting/default/macros.conf
-    # Fix some misc stuff
-    # shellcheck disable=SC2016
-    sed -i 's/index=windows/`windows`/g' /opt/splunk/etc/apps/ThreatHunting/default/data/ui/views/computer_investigator.xml
-    # shellcheck disable=SC2016
-    sed -i 's/$host$)/$host$*)/g' /opt/splunk/etc/apps/ThreatHunting/default/data/ui/views/computer_investigator.xml
-    # This is probably horrible and may break some stuff, but I'm hoping it fixes more than it breaks
-    find /opt/splunk/etc/apps/ThreatHunting -type f ! -path "/opt/splunk/etc/apps/ThreatHunting/default/props.conf" -exec sed -i -e 's/host_fqdn/ComputerName/g' {} \;
-    find /opt/splunk/etc/apps/ThreatHunting -type f ! -path "/opt/splunk/etc/apps/ThreatHunting/default/props.conf" -exec sed -i -e 's/event_id/EventCode/g' {} \;
-
-    # Fix Windows TA macros
-    mkdir -p /opt/splunk/etc/apps/Splunk_TA_windows/local
-    cp /opt/splunk/etc/apps/Splunk_TA_windows/default/macros.conf /opt/splunk/etc/apps/Splunk_TA_windows/local
-    sed -i 's/wineventlog_windows/wineventlog/g' /opt/splunk/etc/apps/Splunk_TA_windows/local/macros.conf
-    # Fix Force Directed App until 2.0.1 is released (https://answers.splunk.com/answers/668959/invalid-key-in-stanza-default-value-light.html#answer-669418)
-    rm -f /opt/splunk/etc/apps/force_directed_viz/default/savedsearches.conf
-
-    # Add a Splunk TCP input on port 9997
-    echo -e "[splunktcp://9997]\nconnection_host = ip" >/opt/splunk/etc/apps/search/local/inputs.conf
-    # Add props.conf and transforms.conf
-    cp /vagrant/resources/splunk_server/props.conf /opt/splunk/etc/apps/search/local/
-    cp /vagrant/resources/splunk_server/transforms.conf /opt/splunk/etc/apps/search/local/
-    cp /opt/splunk/etc/system/default/limits.conf /opt/splunk/etc/system/local/limits.conf
-    # Bump the memtable limits to allow for the ASN lookup table
-    sed -i.bak 's/max_memtable_bytes = 10000000/max_memtable_bytes = 30000000/g' /opt/splunk/etc/system/local/limits.conf
-
-    # Skip Splunk Tour and Change Password Dialog
-    echo "[$(date +%H:%M:%S)]: Disabling the Splunk tour prompt..."
-    touch /opt/splunk/etc/.ui_login
-    mkdir -p /opt/splunk/etc/users/admin/search/local
-    echo -e "[search-tour]\nviewed = 1" >/opt/splunk/etc/system/local/ui-tour.conf
-    # Source: https://answers.splunk.com/answers/660728/how-to-disable-the-modal-pop-up-help-us-to-improve.html
-    if [ ! -d "/opt/splunk/etc/users/admin/user-prefs/local" ]; then
-      mkdir -p "/opt/splunk/etc/users/admin/user-prefs/local"
-    fi
-    echo '[general]
+      cp /vagrant/resources/splunk_server/windows_ta_props.conf /opt/splunk/etc/apps/Splunk_TA_windows/default/props.conf
+      cp /vagrant/resources/splunk_server/sysmon_ta_props.conf /opt/splunk/etc/apps/TA-microsoft-sysmon/default/props.conf
+      mkdir -p /opt/splunk/etc/apps/Splunk_TA_bro/local && cp /vagrant/resources/splunk_server/zeek_ta_props.conf /opt/splunk/etc/apps/Splunk_TA_bro/local/props.conf
+      cp /vagrant/resources/splunk_server/macros.conf /opt/splunk/etc/apps/ThreatHunting/default/macros.conf
+      sed -i 's/index=windows/`windows`/g' /opt/splunk/etc/apps/ThreatHunting/default/data/ui/views/computer_investigator.xml
+      sed -i 's/$host$)/$host$*)/g' /opt/splunk/etc/apps/ThreatHunting/default/data/ui/views/computer_investigator.xml
+      find /opt/splunk/etc/apps/ThreatHunting -type f ! -path "/opt/splunk/etc/apps/ThreatHunting/default/props.conf" -exec sed -i -e 's/host_fqdn/ComputerName/g' {} \;
+      find /opt/splunk/etc/apps/ThreatHunting -type f ! -path "/opt/splunk/etc/apps/ThreatHunting/default/props.conf" -exec sed -i -e 's/event_id/EventCode/g' {} \;
+      mkdir -p /opt/splunk/etc/apps/Splunk_TA_windows/local
+      cp /opt/splunk/etc/apps/Splunk_TA_windows/default/macros.conf /opt/splunk/etc/apps/Splunk_TA_windows/local
+      sed -i 's/wineventlog_windows/wineventlog/g' /opt/splunk/etc/apps/Splunk_TA_windows/local/macros.conf
+      rm -f /opt/splunk/etc/apps/force_directed_viz/default/savedsearches.conf
+      echo -e "[splunktcp://9997]
+connection_host = ip" >/opt/splunk/etc/apps/search/local/inputs.conf
+      cp /vagrant/resources/splunk_server/props.conf /opt/splunk/etc/apps/search/local/
+      cp /vagrant/resources/splunk_server/transforms.conf /opt/splunk/etc/apps/search/local/
+      cp /opt/splunk/etc/system/default/limits.conf /opt/splunk/etc/system/local/limits.conf
+      sed -i.bak 's/max_memtable_bytes = 10000000/max_memtable_bytes = 30000000/g' /opt/splunk/etc/system/local/limits.conf
+      echo "[$(date +%H:%M:%S)]: Disabling the Splunk tour prompt..."
+      touch /opt/splunk/etc/.ui_login
+      mkdir -p /opt/splunk/etc/users/admin/search/local
+      echo -e "[search-tour]
+viewed = 1" >/opt/splunk/etc/system/local/ui-tour.conf
+      if [ ! -d "/opt/splunk/etc/users/admin/user-prefs/local" ]; then
+        mkdir -p "/opt/splunk/etc/users/admin/user-prefs/local"
+      fi
+      cat > /opt/splunk/etc/users/admin/user-prefs/local/user-prefs.conf <<'EOF'
+[general]
 render_version_messages = 1
 dismissedInstrumentationOptInVersion = 4
 notification_python_3_impact = false
-display.page.home.dashboardId = /servicesNS/nobody/search/data/ui/views/logger_dashboard' >/opt/splunk/etc/users/admin/user-prefs/local/user-prefs.conf
-    # Enable SSL Login for Splunk
-    echo -e "[settings]\nenableSplunkWebSSL = true" >/opt/splunk/etc/system/local/web.conf
-    # Copy over the Logger Dashboard
-    if [ ! -d "/opt/splunk/etc/apps/search/local/data/ui/views" ]; then
-      mkdir -p "/opt/splunk/etc/apps/search/local/data/ui/views"
+display.page.home.dashboardId = /servicesNS/nobody/search/data/ui/views/logger_dashboard
+EOF
+      echo -e "[settings]
+enableSplunkWebSSL = true" >/opt/splunk/etc/system/local/web.conf
+      if [ ! -d "/opt/splunk/etc/apps/search/local/data/ui/views" ]; then
+        mkdir -p "/opt/splunk/etc/apps/search/local/data/ui/views"
+      fi
+      cp /vagrant/resources/splunk_server/logger_dashboard.xml /opt/splunk/etc/apps/search/local/data/ui/views || echo "Unable to find dashboard"
+      /opt/splunk/bin/splunk restart
+      /opt/splunk/bin/splunk enable boot-start
+    else
+      /opt/splunk/bin/splunk restart
     fi
-    cp /vagrant/resources/splunk_server/logger_dashboard.xml /opt/splunk/etc/apps/search/local/data/ui/views || echo "Unable to find dashboard"
-    # Reboot Splunk to make changes take effect
-    /opt/splunk/bin/splunk restart
-    /opt/splunk/bin/splunk enable boot-start
+  else
+    if ! /opt/splunk/bin/splunk status >/dev/null 2>&1; then
+      /opt/splunk/bin/splunk start --accept-license --answer-yes --no-prompt || true
+    fi
   fi
+
   # Include Splunk and Zeek in the PATH
   echo export PATH="$PATH:/opt/splunk/bin:/opt/zeek/bin" >>~/.bashrc
   echo "export SPLUNK_HOME=/opt/splunk" >>~/.bashrc
@@ -543,14 +571,64 @@ install_velociraptor() {
   cd /opt/velociraptor || exit 1
   mv velociraptor-*-linux-amd64 velociraptor
   chmod +x velociraptor
-  cp /vagrant/resources/velociraptor/server.config.yaml /opt/velociraptor
+  # Generate a fresh server config with valid certificates and correct bindings
+  echo "[$(date +%H:%M:%S)]: Generating Velociraptor server configuration..."
+  mkdir -p /etc/velociraptor /opt/velociraptor/logs
+  IP=$(ip -4 addr show eth1 | awk '/inet / {split($2,a,"/"); print a[1]}' | head -1)
+  [ -z "$IP" ] && IP=192.168.57.105
+  cat > /tmp/vr_merge.json << VRJSON
+{
+  "GUI": {"bind_address": "0.0.0.0", "bind_port": 9999, "public_url": "https://$IP:9999/app/index.html"},
+  "Frontend": {"hostname": "logger", "bind_address": "0.0.0.0", "bind_port": 9000},
+  "Client": {"server_urls": ["https://$IP:9000/"], "use_self_signed_ssl": true, "pinned_server_name": "VelociraptorServer"},
+  "Datastore": {"location": "/opt/velociraptor", "filestore_directory": "/opt/velociraptor"},
+  "Logging": {"output_directory": "/opt/velociraptor/logs"}
+}
+VRJSON
+  ./velociraptor config generate --merge_file /tmp/vr_merge.json > /etc/velociraptor/server.config.yaml
+
   echo "[$(date +%H:%M:%S)]: Creating Velociraptor dpkg..."
-  ./velociraptor --config /opt/velociraptor/server.config.yaml debian server
+  ./velociraptor --config /etc/velociraptor/server.config.yaml debian server
   echo "[$(date +%H:%M:%S)]: Cleanup velociraptor package building leftovers..."
   rm -rf /opt/velociraptor/logs
   echo "[$(date +%H:%M:%S)]: Installing the dpkg..."
   if dpkg -i velociraptor*server*.deb >/dev/null; then
     echo "[$(date +%H:%M:%S)]: Installation complete!"
+    # Ensure correct permissions for the service user
+    if id velociraptor >/dev/null 2>&1; then
+      chown root:velociraptor /etc/velociraptor/server.config.yaml || true
+      chmod 640 /etc/velociraptor/server.config.yaml || true
+      chown -R velociraptor:velociraptor /opt/velociraptor || true
+    fi
+
+    systemctl daemon-reload
+    # Prefer the packaged server unit
+    VR_UNIT="velociraptor_server"
+    if ! systemctl list-unit-files | grep -qi '^velociraptor_server\.service'; then VR_UNIT="velociraptor"; fi
+
+    systemctl enable "$VR_UNIT" 2>/dev/null || true
+    systemctl restart "$VR_UNIT" 2>/dev/null || systemctl start "$VR_UNIT" 2>/dev/null || true
+
+    # Allow port 9999 if UFW is active
+    if command -v ufw >/dev/null 2>&1; then
+      if ufw status 2>/dev/null | grep -q "Status: active"; then
+        ufw allow 9999/tcp || true
+      fi
+    fi
+
+    # Wait for GUI to listen on 9999
+    echo "[$(date +%H:%M:%S)]: Waiting for Velociraptor GUI on :9999..."
+    for i in $(seq 1 20); do
+      if ss -ltn 2>/dev/null | awk '{print $4}' | grep -q ":9999$"; then
+        echo "[$(date +%H:%M:%S)]: Velociraptor is listening on port 9999."
+        break
+      fi
+      sleep 3
+    done
+    # Ensure fallback unit is disabled if present
+    systemctl disable --now velociraptor-standalone.service 2>/dev/null || true
+    rm -f /etc/systemd/system/velociraptor-standalone.service
+    systemctl daemon-reload
   else
     echo "[$(date +%H:%M:%S)]: Failed to install the dpkg"
     return
@@ -817,6 +895,28 @@ install_guacamole() {
   cp /vagrant/resources/guacamole/guacamole.properties /etc/guacamole/
   cp /vagrant/resources/guacamole/guacd.service /lib/systemd/system
   
+  # Ensure GUACAMOLE_HOME and required extensions are in place
+  mkdir -p /etc/guacamole/extensions /etc/guacamole/lib
+  # Install auth-file extension via Maven Central to match the webapp version
+  GUAC_VER="1.5.5"
+  echo "[$(date +%H:%M:%S)]: Installing Guacamole auth-file extension ($GUAC_VER) from Maven Central..."
+  AUTH_JAR_URL="https://repo1.maven.org/maven2/org/apache/guacamole/guacamole-auth-file/${GUAC_VER}/guacamole-auth-file-${GUAC_VER}.jar"
+  curl -fsSL "$AUTH_JAR_URL" -o "/etc/guacamole/extensions/guacamole-auth-file-${GUAC_VER}.jar" || true
+
+  # Install Jakarta EE migration tool and migrate the WAR for Tomcat 10
+  echo "[$(date +%H:%M:%S)]: Installing Tomcat Jakarta migration tool and migrating guacamole.war..."
+  apt-get install -y tomcat-jakartaee-migration >/dev/null 2>&1 || true
+  if command -v javax2jakarta >/dev/null 2>&1; then
+    ( cd /var/lib/tomcat10/webapps && cp -f guacamole.war guacamole-orig.war && javax2jakarta guacamole.war guacamole-jakarta.war && mv -f guacamole-jakarta.war guacamole.war ) || true
+  fi
+
+  # Set GUACAMOLE_HOME for tomcat10 via a systemd drop-in
+  mkdir -p /etc/systemd/system/tomcat10.service.d
+  cat > /etc/systemd/system/tomcat10.service.d/guacamole.conf <<EOF
+[Service]
+Environment=GUACAMOLE_HOME=/etc/guacamole
+EOF
+
   # Update paths for tomcat10
   ln -s /etc/guacamole/guacamole.properties /usr/share/tomcat10/.guacamole/
   ln -s /etc/guacamole/user-mapping.xml /usr/share/tomcat10/.guacamole/
@@ -831,7 +931,7 @@ install_guacamole() {
   systemctl enable guacd
   systemctl enable tomcat10
   systemctl start guacd
-  systemctl start tomcat10
+  systemctl restart tomcat10
 
   if systemctl is-active --quiet guacd && systemctl is-active --quiet tomcat10; then
     echo "[$(date +%H:%M:%S)]: Guacamole installation complete!"
@@ -884,7 +984,7 @@ main() {
   install_velociraptor
   install_suricata
   install_zeek
-#  install_guacamole
+  install_guacamole
   configure_splunk_inputs
 }
 
