@@ -20,10 +20,10 @@ This is a fork of the original detection lab with new virtual machines on virtua
 
 ## Requirements:
 
-55GB+ of free disk space
-16GB+ of RAM
-Vagrant 2.2.2 or newer
-Virtualbox
+- 55GB+ of free disk space
+- 16GB+ of RAM
+- Vagrant 2.2.2 or newer
+- Virtualbox
 
 ## TLDR; Installation
 
