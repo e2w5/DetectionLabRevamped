@@ -1,6 +1,8 @@
+This is a fork of the original detection lab with new virtual machines on virtual box. 
+
 ## Updates
 
-- VMware Workstation was upgraded to version 17.5 to ensure compatibility and access to the latest features.
+- Updated with Virtual Box so there is no software license cost. 
 
 - The logger virtual machine was upgraded from Ubuntu 20.04 to Ubuntu 24.04.
 
@@ -14,8 +16,14 @@
 
 - The subnet configuration was changed from 192.168.56.X to 192.168.57.X.
 
-- Tested Only with VMWare Workstation 17.6
+- Tested Only with Virtual Box 7.1.12
 
+## Requirements:
+
+55GB+ of free disk space
+16GB+ of RAM
+Vagrant 2.2.2 or newer
+Virtualbox
 
 ## TLDR; Installation
 
@@ -23,23 +31,21 @@
 ```
 https://developer.hashicorp.com/vagrant/downloads
 ```
-
-### install vmware desktop plugin
+### install packer
 ```
-vagrant plugin install vagrant-vmware-desktop
-```
-
-### download and install vagrant vmware utility
-```
-https://developer.hashicorp.com/vagrant/install/vmware
-net.exe start vagrant-vmware-utility
+https://developer.hashicorp.com/packer/install 
 ```
 
-### disable all network interfaces of unused hypervisor (vmare/virtualbox, the one you dont use)
+### Install the Vagrant-Reload plugin by running the following command: 
+```
+vagrant plugin install vagrant-reload.
+```
+
+### disable all network interfaces of unused hypervisor (vmareware, the one you dont use)
 
 ### clone the repo
 ```
-git clone https://github.com/hasamba/DetectionLabRevamped.git
+git clone https://github.com/e2w5/DetectionLabRevamped.git
 cd DetectionLabRevamped/Vagrant
 ```
 
@@ -50,7 +56,7 @@ cd DetectionLabRevamped/Vagrant
 
 ### DO NOT RUN AS ADMIN
 ```
-vagrant up --provider=vmware_desktop
+vagrant up
 ```
 #or one by one
 ```
@@ -66,26 +72,6 @@ vagrant up win11
 
 - disable network adapters for the hypervisor you do NOT use, for example is installing with vmware than disable virtualbox network cards (if exists)
 - Install as non privileged user
-
-
-## Troubleshooting
-
-- Vagrant encountered an unexpected communications error with the Vagrant VMware Utility driver
-  - check that vagrant-vmware-utility service is started
-- Vagrant service failed to start
-  - 1. Check event log
-    2. reinstall driver
-    3. `net stop winnat` & `net start winnat`
-    4. `C:\HashiCorp\VagrantVMwareUtility\bin\vagrant-vmware-utility.exe certificate generate`
-- A VM machine fail to install
-  - try vagrant reload MACHINE_NAME —provision or vagrant destroy MACHINE_NAME -f;vagrant up MACHINE_NAME
-- if all fail and you want a fresh install
-  - delete the hidden folder .vagrant under vagrant and start again
-- if vagrant keeps on failing with provisioning
-  - enter the machine via winrm (enter-pssession -ComputerName MACHINE-DHCP-IP -Credential (Get-Credential) -Authentication Basic) and run all scripts as in vagrantfile
-
-
-
 
 
 # Original Detection Lab Readme
