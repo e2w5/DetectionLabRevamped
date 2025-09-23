@@ -27,7 +27,7 @@ Ensure the lab has been built via `vagrant up` and the VMs (`logger`, `dc`, `wef
 2. Clone the lab repository to obtain helper scripts:
    - `git clone https://github.com/e2w5/DetectionLabRevamped.git`
    - Store the clone in an accessible working directory (e.g., `C:\DetectionLabRevamped`).
-3. Disable VMware network interfaces on the host (Control Panel -> Network Connections, right-click each "VMware Network Adapter VMnet*" and choose **Disable**).
+3. Disable VMware network interfaces on the host (Control Panel -> Network Connections -> right-click each "VMware Network Adapter VMnet*" and choose **Disable**).
 4. From the cloned repository vagrant, run `Disable-HyperV.bat` as Administrator to turn off Hyper-V before using VirtualBox.
 5. Install Vagrant (download from https://developer.hashicorp.com/vagrant/downloads and run the installer).
    - Change into the Vagrant directory: `cd DetectionLabRevamped/Vagrant`
@@ -40,7 +40,7 @@ Ensure the lab has been built via `vagrant up` and the VMs (`logger`, `dc`, `wef
 
 *Checkpoint:* Document any connectivity issues and how you resolved them before moving on.
 
-## Exercise 2 – Splunk Telemetry Validation
+## Exercise 2 - Splunk Telemetry Validation
 1. Log into Splunk at <https://192.168.57.105:8000> (`admin:changeme`).
 2. Confirm the indexes `wineventlog`, `sysmon`, and `osquery` exist via **Settings -> Indexes**.
 3. Run the search `index=sysmon sourcetype=XmlWinEventLog:Microsoft-Windows-Sysmon/Operational | stats count by host`.
@@ -57,15 +57,9 @@ Ensure the lab has been built via `vagrant up` and the VMs (`logger`, `dc`, `wef
 
 Please attempt the questions before reviewing the answers below.
 
-## Post-Lab Restoration IMPORTANT
+## Post-Lab Restoration
 - Re-enable VMware network adapters (Control Panel -> Network Connections -> right-click each "VMware Network Adapter VMnet*" and choose **Enable**).
 - Run `Enable-HyperV.bat` as Administrator (from the repository vagrant) to restore Hyper-V if you disabled it earlier.
-
-
-
-
-
-
 
 
 
