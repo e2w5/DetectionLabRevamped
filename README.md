@@ -38,7 +38,7 @@ https://developer.hashicorp.com/packer/install
 
 ### Install the Vagrant-Reload plugin by running the following command: 
 ```
-vagrant plugin install vagrant-reload.
+vagrant plugin install vagrant-reload
 ```
 
 ### disable all network interfaces of unused hypervisor (vmareware, the one you dont use)
