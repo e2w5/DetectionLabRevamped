@@ -41,27 +41,10 @@ Ensure the lab has been built via `vagrant up` and the VMs (`logger`, `dc`, `wef
 
 *Checkpoint:* Save a screenshot of your dashboard for later review.
 
-## Exercise 3 – Fleet/osquery Review
-1. Visit Fleet at <https://192.168.57.105:8412> and authenticate (`admin@detectionlab.network` / `Fl33tpassword!`).
-2. Ensure all enrolled agents (`logger`, `dc`, `wef`, `win11`) show **Online**.
-3. Run a live query using the `processes` pack to list PowerShell processes across Windows hosts.
-4. Schedule a query (e.g., listening ports) and note where results are stored in Splunk.
 
-## Exercise 4 – Atomic Red Team Smoke Test
-This exercise validates red-team tooling is ready while remaining safe. Run the commands from the `win11` VM after temporarily disabling Defender real-time protection if necessary.
 
-1. On `win11`, open an elevated PowerShell session.
-2. Execute `Invoke-AtomicTest T1059.001 -TestGuids 4f14f0c1-9f47-4a01-a513-9a9d2bb80bd0 -PathToAtomicsFolder C:\Tools\AtomicRedTeam\atomics`.
-3. Monitor Splunk for new entries in `index=sysmon` where `Image=C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`.
-4. Record observed event IDs and how they map to detection logic in your SIEM.
 
-*Checkpoint:* Re-enable Defender protections when finished if you disabled them.
 
-## Exercise 5 – Windows Event Forwarding & Transcripts
-1. On `dc`, trigger a failed logon attempt by entering an incorrect password for a domain user.
-2. On `wef`, open **Event Viewer -> Subscriptions** and confirm the event arrives in the **Forwarded Events** channel.
-3. Browse to `\\wef\pslogs` and verify PowerShell transcripts from prior steps are present.
-4. Note the retention location for transcripts and any permissions required to access them.
 
 ## Knowledge Check
 1. Which host runs Splunk Enterprise and Fleet, and what is its IP address?
