@@ -41,11 +41,6 @@ Ensure the lab has been built via `vagrant up` and the VMs (`logger`, `dc`, `wef
 
 *Checkpoint:* Save a screenshot of your dashboard for later review.
 
-
-
-
-
-
 ## Knowledge Check
 1. Which host runs Splunk Enterprise and Fleet, and what is its IP address?
 2. Where can you find PowerShell transcript logs generated across the domain?
@@ -54,6 +49,9 @@ Ensure the lab has been built via `vagrant up` and the VMs (`logger`, `dc`, `wef
 5. Name two Windows hosts that forward Sysmon data and explain how to confirm the forwarder service is healthy.
 
 Please attempt the questions before reviewing the answers below.
+
+
+
 
 
 
