@@ -28,7 +28,8 @@ Ensure the lab has been built via `vagrant up` and the VMs (`logger`, `dc`, `wef
 Import the VMs to virtual box.
 
 2. Clone the lab repository to obtain helper scripts:
-   - `git clone https://github.com/e2w5/DetectionLabRevamped.git D:\Users\cueh\DetectionLabRevamped`
+   - 'cd D:\Users\cueh\'
+   - `git clone https://github.com/e2w5/DetectionLabRevamped.git`
 3. Disable VMware network interfaces on the host (Control Panel -> Network Connections -> right-click each "VMware Network Adapter VMnet*" and choose **Disable**).
 4. From the cloned repository root, run `Disable-HyperV.bat` as Administrator to turn off Hyper-V before using VirtualBox. 
 5. Disable Windows Core Isolation / Memory Integrity (Windows Security -> Device Security -> Core isolation details -> set **Memory integrity** to Off and restart if prompted).
