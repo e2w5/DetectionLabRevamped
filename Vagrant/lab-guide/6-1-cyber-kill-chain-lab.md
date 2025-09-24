@@ -10,8 +10,10 @@ This lab guides you through executing selected Atomic Red Team tests aligned to 
 - Document detection gaps and recommended mitigations.
 ## Prerequisites
 - Lab 5-1 orientation complete; VMs running (`logger`, `dc`, `wef`, `win11`).
+- Host preparation complete (clone repository, disable VMware adapters, run `Disable-HyperV.bat`, disable Windows Core Isolation / Memory Integrity).
 - Defender disabled or exclusions configured on `win11` to allow Atomic tests.
 - Splunk accessible at <https://192.168.57.105:8000> and Atomic Red Team installed under `C:\Tools\AtomicRedTeam`.
+
 ## Scenario Overview
 You will execute five phases of the Cyber Kill Chain with curated Atomic Red Team tests. After each execution, pivot to Splunk to validate telemetry and create detections. Use the table below as a roadmap.
 
@@ -79,12 +81,28 @@ esolve-atomics.ps1 T1566.001,T1059.001,T1547.001,T1071.001,T1003.001`.
 4. Which Splunk saved search would alert on LSASS access attempts?
 5. What cleanup steps are required after running persistence and credential dumping atomics?
 
+## Post-Lab Restoration
+- Re-enable VMware network adapters (Control Panel -> Network Connections -> enable each VMware Network Adapter VMnet*).
+- Run Enable-HyperV.bat as Administrator from the repository root to restore Hyper-V.
+
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+
 ## Answer Key
 1. T1566.001 (phishing); observed EventCode 4688 in `index=wineventlog` with the payload command line.
 2. `index=sysmon` EventCode 13 captured Run key modifications.
 3. Combined `index=suricata`/`zeek` HTTP data with `index=sysmon` EventCode 3 (network connections) filtered on `host=win11`.
 4. The correlation search created in Exercise 3 (`detections/execution`) plus a targeted query `index=sysmon EventCode=10 Image=*lsass*`.
 5. Run Atomic tests with `-Cleanup`, remove Run keys, and re-enable Defender protections.
+
 
 
 

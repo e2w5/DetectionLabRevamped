@@ -17,8 +17,13 @@ This lab provides a guided tour of the Splunk Enterprise UI deployed on the logg
 - Browser access to <https://192.168.57.105:8000> from the host or via Guacamole.
 - Fleet credentials: `admin@detectionlab.network / Fl33tpassword!`.
 - Atomic Red Team tooling present on `win11` (`C:\Tools\AtomicRedTeam`).
+- Host preparation complete (as outlined in Lab 5-1):
+  - `git clone https://github.com/e2w5/DetectionLabRevamped.git`
+  - Disable VMware network adapters (Control Panel -> Network Connections -> disable each `VMware Network Adapter VMnet*`).
+  - Run `Disable-HyperV.bat` as Administrator from the cloned repository root.
+  - Disable Windows Core Isolation / Memory Integrity (Windows Security -> Device Security -> Core isolation details).
 
-## Exercise 1 – Navigating Splunk Web
+## Exercise 1 - Navigating Splunk Web – Navigating Splunk Web
 1. Sign in to Splunk Web at <https://192.168.57.105:8000> with `admin:changeme`.
 2. Explore the **Home** page: note recent searches, dashboards, and data summaries.
 3. Open **Apps -> Search & Reporting** to access the primary search workspace.
@@ -72,6 +77,20 @@ This exercise validates red-team tooling is ready while remaining safe. Run the 
 5. After running an Atomic Red Team PowerShell test, which Splunk search confirms execution details?
 6. Where can you review PowerShell transcripts collected via Windows Event Forwarding?
 
+## Post-Lab Restoration`r`n- Re-enable VMware network adapters (Control Panel -> Network Connections -> enable each VMware Network Adapter VMnet*).
+- Run Enable-HyperV.bat from the repository root to restore Hyper-V if previously disabled.
+
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+
 ## Answer Key
 1. Inside **Search & Reporting -> Data Summary**.
 2. `index=sysmon`; run `index=sysmon | stats count by host` or review the Data Summary hosts view.
@@ -79,3 +98,4 @@ This exercise validates red-team tooling is ready while remaining safe. Run the 
 4. Sourcetype `osquery:result`; Fleet queries surface in Splunk within `index=osquery` with host and query name fields.
 5. `index=sysmon host=win11 Image="*powershell.exe" | table _time, host, CommandLine` displays the atomic execution.
 6. PowerShell transcripts reside on the WEF share at `\\wef\pslogs`; forwarded attempts appear in `index=wineventlog` with the ForwardedEvents sourcetype.
+

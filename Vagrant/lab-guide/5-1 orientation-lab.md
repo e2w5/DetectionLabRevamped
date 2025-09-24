@@ -28,15 +28,16 @@ Ensure the lab has been built via `vagrant up` and the VMs (`logger`, `dc`, `wef
    - `git clone https://github.com/e2w5/DetectionLabRevamped.git`
    - Store the clone in an accessible working directory (e.g., `C:\DetectionLabRevamped`).
 3. Disable VMware network interfaces on the host (Control Panel -> Network Connections -> right-click each "VMware Network Adapter VMnet*" and choose **Disable**).
-4. From the cloned repository vagrant, run `Disable-HyperV.bat` as Administrator to turn off Hyper-V before using VirtualBox.
-5. Install Vagrant (download from https://developer.hashicorp.com/vagrant/downloads and run the installer).
+4. From the cloned repository root, run `Disable-HyperV.bat` as Administrator to turn off Hyper-V before using VirtualBox. 
+5. Disable Windows Core Isolation / Memory Integrity (Windows Security -> Device Security -> Core isolation details -> set **Memory integrity** to Off and restart if prompted).
+6. Install Vagrant (download from https://developer.hashicorp.com/vagrant/downloads and run the installer).
    - Change into the Vagrant directory: `cd DetectionLabRevamped/Vagrant`
    - Install the reload plugin with `vagrant plugin install vagrant-reload`.
    - Run `vagrant up` from within the Vagrant directory.
-6. From the host OS, open a terminal and run `vagrant status` to confirm all VMs report `running`.
-7. Use `vagrant winrm dc -c "hostname"` and repeat for `wef` and `win11` to verify WinRM reachability.
-8. SSH to the logger machine by running `vagrant ssh logger`.
-9. Launch an RDP connection or use the VirtualBox console to access `win11` and confirm you can log on as `vagrant\vagrant`.
+7. From the host OS, open a terminal and run `vagrant status` to confirm all VMs report `running`.
+8. Use `vagrant winrm dc -c "hostname"` and repeat for `wef` and `win11` to verify WinRM reachability.
+9. SSH to the logger machine by running `vagrant ssh logger`.
+10. Launch an RDP connection or use the VirtualBox console to access `win11` and confirm you can log on as `vagrant\\vagrant`.
 
 *Checkpoint:* Document any connectivity issues and how you resolved them before moving on.
 
@@ -59,26 +60,21 @@ Please attempt the questions before reviewing the answers below.
 
 ## Post-Lab Restoration
 - Re-enable VMware network adapters (Control Panel -> Network Connections -> right-click each "VMware Network Adapter VMnet*" and choose **Enable**).
-- Run `Enable-HyperV.bat` as Administrator (from the repository vagrant) to restore Hyper-V if you disabled it earlier.
+- Run `Enable-HyperV.bat` as Administrator (from the repository root) to restore Hyper-V if you disabled it earlier.
 
-
-
-
-<br /><br /><br /><br /><br /><br /><br /><br /><br /><br /><br /><br /><br />
-
-
-
-
-
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
 
 ## Answer Key
 - `logger` at 192.168.57.105 hosts both Splunk Enterprise and Fleet.
 - PowerShell transcripts reside on the WEF server share at `\\wef\pslogs`.
 - Use `admin@detectionlab.network` / `Fl33tpassword!`; TLS protects credentials and query results in transit.
 - Both `dc` and `wef` forward Sysmon. Confirm by checking the Splunk UF service status (`services.msc` or `Get-Service`) and verifying recent events in Splunk.
-
-
-
-
-
-

@@ -15,8 +15,9 @@ This lab focuses on the network-centric tooling shipped with DetectionLabRevampe
 - `logger`, `dc`, `wef`, and `win11` running.
 - Access to Splunk (<https://192.168.57.105:8000>) and Velociraptor console (<https://192.168.57.105:9999>, `admin:changeme`).
 - Ability to generate network traffic from `win11` (curl, web browsers, etc.).
+- Host preparation complete (clone repository, disable VMware adapters, run `Disable-HyperV.bat`, disable Windows Core Isolation / Memory Integrity).
 
-## Exercise 1 – Survey the Sensor Stack
+## Exercise 1 – Survey the Sensor Stack – Survey the Sensor Stack
 1. SSH to `logger` (`vagrant ssh logger`).
 2. Verify Suricata service status with `sudo systemctl status suricata` and Zeek with `sudo systemctl status zeek`.
 3. List active log files: `ls -1 /var/log/suricata/` and `/opt/zeek/logs/current/`.
@@ -79,9 +80,25 @@ This lab focuses on the network-centric tooling shipped with DetectionLabRevampe
 4. Which Splunk indexes capture Zeek HTTP data and Suricata alerts?
 5. How can you tie a Suricata signature to a specific Windows process using available tooling?
 
+## Post-Lab Restoration
+- Re-enable VMware network adapters (Control Panel -> Network Connections -> enable each VMware Network Adapter VMnet*).
+- Run Enable-HyperV.bat as Administrator from the repository root to restore Hyper-V.
+
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+
 ## Answer Key
 1. Suricata: `/var/log/suricata/`; Zeek: `/opt/zeek/logs/current/`.
 2. By running `index=suricata` searches and reviewing the Network Threat Overview dashboard.
 3. `Windows.System.Pslist` hunt artifact.
 4. `index=zeek` (sourcetype `zeek:http`, etc.) and `index=suricata`.
 5. Correlate Splunk `index=suricata` alerts with Zeek logs, then use Sysmon (`index=sysmon`) and Velociraptor hunts to identify the process responsible on `win11`.
+
