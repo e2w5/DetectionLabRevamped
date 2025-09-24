@@ -23,10 +23,13 @@ Ensure the lab has been built via `vagrant up` and the VMs (`logger`, `dc`, `wef
 | win11 (Windows 11) | 192.168.57.104 | Workstation simulation, Sysmon, osquery, Velociraptor, Splunk UF |
 
 ## Exercise 1 - Baseline Connectivity & Access
-1. Copy the virtual machines from the lab server to your computer.
+1. Checking the virtual machine on your D: drive Mirror folder with the name "Intrusion Respond.ova". Copy the virtual machines from the lab server to your computer by running the CleanSync script on the D: drive, if it is not there.
+
+Import the VMs to virtual box.
+
 2. Clone the lab repository to obtain helper scripts:
    - `git clone https://github.com/e2w5/DetectionLabRevamped.git`
-   - Store the clone in an accessible working directory (e.g., `C:\DetectionLabRevamped`).
+   - Store the clone in an accessible working directory (e.g., `D:\DetectionLabRevamped`).
 3. Disable VMware network interfaces on the host (Control Panel -> Network Connections -> right-click each "VMware Network Adapter VMnet*" and choose **Disable**).
 4. From the cloned repository root, run `Disable-HyperV.bat` as Administrator to turn off Hyper-V before using VirtualBox. 
 5. Disable Windows Core Isolation / Memory Integrity (Windows Security -> Device Security -> Core isolation details -> set **Memory integrity** to Off and restart if prompted).

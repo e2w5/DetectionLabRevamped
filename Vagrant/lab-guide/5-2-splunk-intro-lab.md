@@ -77,7 +77,8 @@ This exercise validates red-team tooling is ready while remaining safe. Run the 
 5. After running an Atomic Red Team PowerShell test, which Splunk search confirms execution details?
 6. Where can you review PowerShell transcripts collected via Windows Event Forwarding?
 
-## Post-Lab Restoration`r`n- Re-enable VMware network adapters (Control Panel -> Network Connections -> enable each VMware Network Adapter VMnet*).
+## Post-Lab Restoration
+- Re-enable VMware network adapters (Control Panel -> Network Connections -> enable each VMware Network Adapter VMnet*).
 - Run Enable-HyperV.bat from the repository root to restore Hyper-V if previously disabled.
 
 <br />
