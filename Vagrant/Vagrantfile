@@ -3,19 +3,11 @@ POWERSHELL_ARGS = "-NoProfile -ExecutionPolicy Bypass"
 Vagrant.configure("2") do |config|
 
   config.vm.define "logger" do |cfg|
-    cfg.vm.box = "bento/ubuntu-24.04"
-    cfg.vm.box_version = "202508.03.0"
+    cfg.vm.box = "bento/ubuntu-22.04"
     cfg.vm.hostname = "logger"
     cfg.vm.provision :shell, path: "logger_bootstrap.sh"
     cfg.vm.network :private_network, ip: "192.168.57.105", gateway: "192.168.57.1", dns: "8.8.8.8"
 
-    cfg.vm.provider "vmware_desktop" do |v, override|
-      v.vmx["displayname"] = "logger"
-      v.vmx["virtualhw.version"] = 21
-      v.memory = 4096
-      v.cpus = 2
-      v.gui = true
-    end
 
     cfg.vm.provider "virtualbox" do |vb, override|
       vb.gui = true
@@ -73,13 +65,6 @@ Vagrant.configure("2") do |config|
     cfg.vm.provision "shell", inline: "Set-SmbServerConfiguration -AuditSmb1Access $true -Force", privileged: false, powershell_args: POWERSHELL_ARGS
     cfg.vm.provision "shell", inline: "Write-Host 'DC Provisioning Complete!'", privileged: false, powershell_args: POWERSHELL_ARGS
 
-    cfg.vm.provider "vmware_desktop" do |v, override|
-      v.vmx["displayname"] = "dc.windomain.local"
-      v.vmx["virtualhw.version"] = 21
-      v.memory = 3072
-      v.cpus = 2
-      v.gui = true
-    end
 
     cfg.vm.provider "virtualbox" do |vb, override|
       vb.gui = true
@@ -138,13 +123,6 @@ Vagrant.configure("2") do |config|
     cfg.vm.provision "shell", inline: "Set-SmbServerConfiguration -AuditSmb1Access $true -Force", privileged: false, powershell_args: POWERSHELL_ARGS
     cfg.vm.provision "shell", inline: "Write-Host 'WEF Provisioning Complete!'", privileged: false, powershell_args: POWERSHELL_ARGS
 
-    cfg.vm.provider "vmware_desktop" do |v, override|
-      v.vmx["displayname"] = "wef.windomain.local"
-      v.vmx["virtualhw.version"] = 21
-      v.memory = 2048
-      v.cpus = 2
-      v.gui = true
-    end
 
     cfg.vm.provider "virtualbox" do |vb, override|
       vb.gui = true
@@ -192,15 +170,6 @@ Vagrant.configure("2") do |config|
     cfg.vm.provision "shell", path: "scripts/hasamba_tweaks.ps1", privileged: false, powershell_args: POWERSHELL_ARGS
     cfg.vm.provision "shell", inline: "Write-Host 'Win11 Provisioning Complete!'", privileged: false, powershell_args: POWERSHELL_ARGS
 
-    cfg.vm.provider "vmware_desktop" do |v, override|
-      v.vmx["displayname"] = "win11.windomain.local"
-      v.vmx["virtualhw.version"] = 21
-      v.vmx["gui.fullscreenatpoweron"] = "FALSE"
-      v.vmx["gui.viewModeAtPowerOn"] = "windowed"
-      v.memory = 8192
-      v.cpus = 4
-      v.gui = true
-    end
 
     cfg.vm.provider "virtualbox" do |vb, override|
       vb.gui = true
