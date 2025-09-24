@@ -24,8 +24,8 @@ Ensure the lab has been built via `vagrant up` and the VMs (`logger`, `dc`, `wef
 
 ## Exercise 1 - Baseline Connectivity & Access
 1. Checking the virtual machine on your D: drive Mirror folder with the name "Intrusion Respond.ova". Copy the virtual machines from the lab server to your computer by running the CleanSync script on the D: drive, if it is not there.
-
-Import the VMs to virtual box.
+   - Import the VMs to virtual box.
+   - Install windows terminal
 
 2. Clone the lab repository to obtain helper scripts:
    - 'cd D:\Users\cueh\'
@@ -36,6 +36,7 @@ Import the VMs to virtual box.
 6. Install Vagrant (download from https://developer.hashicorp.com/vagrant/downloads and run the installer).
    - Change into the Vagrant directory: `cd DetectionLabRevamped/Vagrant`
    - Install the reload plugin with `vagrant plugin install vagrant-reload`.
+   - `$env:VAGRANT_DEFAULT_PROVIDER = "virtualbox"`
    - Run `vagrant up` from within the Vagrant directory.
 7. From the host OS, open a terminal and run `vagrant status` to confirm all VMs report `running`.
 8. Use `vagrant winrm dc -c "hostname"` and repeat for `wef` and `win11` to verify WinRM reachability.
