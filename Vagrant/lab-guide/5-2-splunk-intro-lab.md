@@ -13,9 +13,7 @@ This lab provides a guided tour of the Splunk Enterprise UI deployed on the logg
 
 ## Prerequisites
 - Splunk Enterprise running on `logger` (confirm with `vagrant status`).
-- Credentials: `admin:changeme`.
-- Browser access to <https://192.168.57.105:8000> from the host or via Guacamole.
-- Fleet credentials: `admin@detectionlab.network / Fl33tpassword!`.
+- Browser access to <https://192.168.57.105:8000> from the host. Credentials: `admin:changeme`.
 - Atomic Red Team tooling present on `win11` (`C:\Tools\AtomicRedTeam`).
 - Host preparation complete (as outlined in Lab 5-1):
   - `git clone https://github.com/e2w5/DetectionLabRevamped.git`
@@ -27,7 +25,7 @@ This lab provides a guided tour of the Splunk Enterprise UI deployed on the logg
 1. Sign in to Splunk Web at <https://192.168.57.105:8000> with `admin:changeme`.
 2. Explore the **Home** page: note recent searches, dashboards, and data summaries.
 3. Open **Apps -> Search & Reporting** to access the primary search workspace.
-4. Locate the **Datasets**, **Reports**, and **Dashboards** tabs and review existing content shipped with the lab.
+4. Locate the **Dashboards** tabs and review existing content shipped with the lab.
 
 *Checkpoint:* Record where to access the Data Summary view and list which indexes appear most active.
 
