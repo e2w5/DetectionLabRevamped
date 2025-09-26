@@ -30,11 +30,11 @@ This lab provides a guided tour of the Splunk Enterprise UI deployed on the logg
 *Checkpoint:* Record where to access the Data Summary view and list which indexes appear most active.
 
 ## Exercise 2 - Validating Data Sources (Splunk 10)
-1. In the **Search** app (Splunk 10 default UI), open the **Data** sidebar and choose **Data Summary**. If you prefer the classic view, click the profile menu -> **Switch to Classic Search** first.
-2. Under **Hosts**, confirm `dc`, `wef`, `win11`, and `logger` show recent activity. Use the time filter to focus on the last 15 minutes if needed.
-3. Select the **Sourcetypes** tab and verify entries for Sysmon, Windows Event Logs, osquery results (`osquery:result`), Zeek, and Suricata. Splunk 10 surfaces each sourcetype with data badges.
-4. Run the SPL `index=* earliest=-15m latest=now | stats count by index` (new Search UI: **+ New Search -> Run**). Save it via **Actions -> Save As -> Report**, naming it "Last 15 Minutes Index Volume" and sharing it with the app context.
-5. From the results, click **Visualize** and choose **Column** to confirm the Splunk 10 reporting workflow, then return to Search.
+1. In the **Search** app start a new search window and run `| tstats count where index=* earliest=-15m latest=now by host`. Confirm `dc`, `wef`, `win11`, and `logger` report recent events.
+2. Run `index=* earliest=-15m latest=now | stats count by sourcetype` to verify Sysmon, Windows Event Logs, osquery results (`osquery:result`), Zeek, and Suricata are arriving. Use the time picker if you need a different window.
+3. Validate osquery ingestion with `index=osquery earliest=-15m latest=now | stats count by host, name` and confirm the Fleet query names you expect.
+4. Save the first search through **Actions -> Save As -> Report**, naming it "Last 15 Minutes Index Volume" and keeping sharing set to "This app".
+5. From the results, click **Visualize** and choose **Column** to review relative volume before returning to the search workspace.
 
 *Checkpoint:* List any indexes showing zero events in the last 15 minutes and note whether a data source or forwarder needs attention.
 
