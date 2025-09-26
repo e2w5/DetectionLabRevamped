@@ -29,13 +29,14 @@ This lab provides a guided tour of the Splunk Enterprise UI deployed on the logg
 
 *Checkpoint:* Record where to access the Data Summary view and list which indexes appear most active.
 
-## Exercise 2 – Validating Data Sources
-1. From **Search & Reporting**, click **Data Summary -> Hosts**. Confirm `dc`, `wef`, and `win11` appear with recent events.
-2. Switch to the **Source types** tab and identify entries for Sysmon, Windows Event Logs, osquery, and Zeek/Suricata.
-3. Use the search `index=* earliest=-15m latest=now | stats count by index` to view recent ingestion.
-4. Save this search as a report called "Last 15 Minutes Index Volume".
+## Exercise 2 - Validating Data Sources (Splunk 10)
+1. In the **Search** app (Splunk 10 default UI), open the **Data** sidebar and choose **Data Summary**. If you prefer the classic view, click the profile menu -> **Switch to Classic Search** first.
+2. Under **Hosts**, confirm `dc`, `wef`, `win11`, and `logger` show recent activity. Use the time filter to focus on the last 15 minutes if needed.
+3. Select the **Sourcetypes** tab and verify entries for Sysmon, Windows Event Logs, osquery results (`osquery:result`), Zeek, and Suricata. Splunk 10 surfaces each sourcetype with data badges.
+4. Run the SPL `index=* earliest=-15m latest=now | stats count by index` (new Search UI: **+ New Search -> Run**). Save it via **Actions -> Save As -> Report**, naming it "Last 15 Minutes Index Volume" and sharing it with the app context.
+5. From the results, click **Visualize** and choose **Column** to confirm the Splunk 10 reporting workflow, then return to Search.
 
-*Checkpoint:* Document any indexes that show zero events and flag for follow-up.
+*Checkpoint:* List any indexes showing zero events in the last 15 minutes and note whether a data source or forwarder needs attention.
 
 ## Exercise 3 – Building Dashboards
 1. Run the search `index=sysmon | stats count by host, Image | sort - count limit=10` to view top processes.
