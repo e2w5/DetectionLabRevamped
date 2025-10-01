@@ -23,13 +23,16 @@ Ensure the lab has been built via `vagrant up` and the VMs (`logger`, `dc`, `wef
 | win11 (Windows 11) | 192.168.57.104 | Workstation simulation, Sysmon, osquery, Velociraptor, Splunk UF |
 
 ## Exercise 1 - Baseline Connectivity & Access
-1. Checking the virtual machine on your D: drive Mirror folder with the name "Intrusion Respond.ova". Copy the virtual machines from the lab server to your computer by running the CleanSync script on the D: drive, if it is not there.
-   - Import the VMs to virtual box.
-   - Install windows terminal
+1. Checking the virtual machine on your D: drive (D:\Mirror\VM\Intrusion Response). Copy the virtual machines from the lab server to your computer by running the CleanSync script on the D: drive, if it is not there.
 
-2. Clone the lab repository to obtain helper scripts:
-   - 'cd D:\Users\cueh\'
-   - `git clone https://github.com/e2w5/DetectionLabRevamped.git`
+2. - Install the windows terminal.
+   - install the git for windows.
+   - Clone the lab repository to obtain helper scripts:
+      - 'mkdir D:\Users\cueh\'
+      - 'cd D:\Users\cueh\'
+      - `git clone https://github.com/e2w5/DetectionLabRevamped.git`
+      - 'robocopy "D:\Mirror\VM\Intrusion response" "D:\Users\cueh\DetectionLabRevamped\Boxes" /E /COPY:DAT /R:3 /W:5 /V /ETA'
+
 3. Disable VMware network interfaces on the host (Control Panel -> Network Connections -> right-click each "VMware Network Adapter VMnet*" and choose **Disable**).
 4. From the cloned repository root, run `Disable-HyperV.bat` as Administrator to turn off Hyper-V before using VirtualBox. 
 5. Disable Windows Core Isolation / Memory Integrity (Windows Security -> Device Security -> Core isolation details -> set **Memory integrity** to Off and restart if prompted).
