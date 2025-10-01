@@ -13,9 +13,7 @@ This lab provides a guided tour of the Splunk Enterprise UI deployed on the logg
 
 ## Prerequisites
 - Splunk Enterprise running on `logger` (confirm with `vagrant status`).
-- Credentials: `admin:changeme`.
-- Browser access to <https://192.168.57.105:8000> from the host or via Guacamole.
-- Fleet credentials: `admin@detectionlab.network / Fl33tpassword!`.
+- Browser access to <https://192.168.57.105:8000> from the host. Credentials: `admin:changeme`.
 - Atomic Red Team tooling present on `win11` (`C:\Tools\AtomicRedTeam`).
 - Host preparation complete (as outlined in Lab 5-1):
   - `git clone https://github.com/e2w5/DetectionLabRevamped.git`
@@ -27,17 +25,18 @@ This lab provides a guided tour of the Splunk Enterprise UI deployed on the logg
 1. Sign in to Splunk Web at <https://192.168.57.105:8000> with `admin:changeme`.
 2. Explore the **Home** page: note recent searches, dashboards, and data summaries.
 3. Open **Apps -> Search & Reporting** to access the primary search workspace.
-4. Locate the **Datasets**, **Reports**, and **Dashboards** tabs and review existing content shipped with the lab.
+4. Locate the **Dashboards** tabs and review existing content shipped with the lab.
 
 *Checkpoint:* Record where to access the Data Summary view and list which indexes appear most active.
 
-## Exercise 2 – Validating Data Sources
-1. From **Search & Reporting**, click **Data Summary -> Hosts**. Confirm `dc`, `wef`, and `win11` appear with recent events.
-2. Switch to the **Source types** tab and identify entries for Sysmon, Windows Event Logs, osquery, and Zeek/Suricata.
-3. Use the search `index=* earliest=-15m latest=now | stats count by index` to view recent ingestion.
-4. Save this search as a report called "Last 15 Minutes Index Volume".
+## Exercise 2 - Validating Data Sources (Splunk 10)
+1. In the **Search** app start a new search window and run `| tstats count where index=* earliest=-15m latest=now by host`. Confirm `dc`, `wef`, `win11`, and `logger` report recent events.
+2. Run `index=* earliest=-15m latest=now | stats count by sourcetype` to verify Sysmon, Windows Event Logs, osquery results (`osquery:result`), Zeek, and Suricata are arriving. Use the time picker if you need a different window.
+3. Validate osquery ingestion with `index=osquery earliest=-15m latest=now | stats count by host, name` and confirm the Fleet query names you expect.
+4. Save the first search through **Actions -> Save As -> Report**, naming it "Last 15 Minutes Index Volume" and keeping sharing set to "This app".
+5. From the results, click **Visualize** and choose **Column** to review relative volume before returning to the search workspace.
 
-*Checkpoint:* Document any indexes that show zero events and flag for follow-up.
+*Checkpoint:* List any indexes showing zero events in the last 15 minutes and note whether a data source or forwarder needs attention.
 
 ## Exercise 3 – Building Dashboards
 1. Run the search `index=sysmon | stats count by host, Image | sort - count limit=10` to view top processes.
