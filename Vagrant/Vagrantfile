@@ -15,14 +15,16 @@ def find_local_box(local_filename)
 end
 
 
-def configure_box(cfg, name:, local_filename:, version: nil)
+def configure_box(cfg, name:, local_filename:, local_version: nil, version: nil, fallback_version: nil)
   local_path = find_local_box(local_filename)
   if local_path
     cfg.vm.box = name
     cfg.vm.box_url = "file://#{local_path.tr('\\', '/')}"
+    cfg.vm.box_version = local_version if local_version
   else
     cfg.vm.box = name
-    cfg.vm.box_version = version if version
+    chosen_version = version || fallback_version
+    cfg.vm.box_version = chosen_version if chosen_version
   end
 end
 
@@ -49,7 +51,7 @@ Vagrant.configure("2") do |config|
   end
 
   config.vm.define "dc" do |cfg|
-    configure_box(cfg, name: "gusztavvargadr/windows-server-2022-standard", local_filename: "dc.box", version: "2506.0.0")
+    configure_box(cfg, name: "stromweld/windows-2022", local_filename: "dc.box", version: "202308.09.0", fallback_version: "202212.26.0")
     cfg.vm.hostname = "dc"
     cfg.vm.boot_timeout = 600
     cfg.winrm.transport = :plaintext
@@ -106,7 +108,7 @@ Vagrant.configure("2") do |config|
   end
 
   config.vm.define "wef" do |cfg|
-    configure_box(cfg, name: "gusztavvargadr/windows-server-2022-standard", local_filename: "wef.box", version: "2506.0.0")
+    configure_box(cfg, name: "stromweld/windows-2022", local_filename: "wef.box", version: "202308.09.0", fallback_version: "202212.26.0")
     cfg.vm.hostname = "wef"
     cfg.vm.boot_timeout = 1200
     cfg.vm.communicator = "winrm"
@@ -207,3 +209,6 @@ Vagrant.configure("2") do |config|
     end
   end
 end
+
+
+
