@@ -28,10 +28,10 @@ Ensure the lab has been built via `vagrant up` and the VMs (`logger`, `dc`, `wef
 2. - Install the windows terminal.
    - install the git for windows.
    - Clone the lab repository to obtain helper scripts:
-      - 'mkdir D:\Users\cueh\'
-      - 'cd D:\Users\cueh\'
+      - `mkdir D:\Users\cueh\`
+      - `cd D:\Users\cueh\`
       - `git clone https://github.com/e2w5/DetectionLabRevamped.git`
-      - 'robocopy "D:\Mirror\VM\Intrusion response" "D:\Users\cueh\DetectionLabRevamped\Boxes" /E /COPY:DAT /R:3 /W:5 /V /ETA'
+      - `robocopy "D:\Mirror\VM\Intrusion response" "D:\Users\cueh\DetectionLabRevamped\Boxes" /E /COPY:DAT /R:3 /W:5 /V /ETA`
 
 3. Disable VMware network interfaces on the host (Control Panel -> Network Connections -> right-click each "VMware Network Adapter VMnet*" and choose **Disable**).
 4. From the cloned repository root, run `Disable-HyperV.bat` as Administrator to turn off Hyper-V before using VirtualBox. 
