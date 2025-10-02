@@ -46,7 +46,6 @@ Ensure the lab has been built via `vagrant up` and the VMs (`logger`, `dc`, `wef
 9. SSH to the logger machine by running `vagrant ssh logger`.
 10. Launch an RDP connection or use the VirtualBox console to access `win11` and confirm you can log on as `vagrant\\vagrant`.
 
-*Checkpoint:* Document any connectivity issues and how you resolved them before moving on.
 
 ## Exercise 2 - Splunk Telemetry Validation
 1. Log into Splunk at <https://192.168.57.105:8000> (`admin:changeme`).
@@ -55,7 +54,6 @@ Ensure the lab has been built via `vagrant up` and the VMs (`logger`, `dc`, `wef
 4. Export the search results (CSV) to confirm hosts `dc`, `wef`, and `win11` are reporting.
 5. Create a dashboard panel that tracks events per host over the last 60 minutes.
 
-*Checkpoint:* Save a screenshot of your dashboard for later review.
 
 ## Knowledge Check
 1. Which host runs Splunk Enterprise and Fleet, and what is its IP address?
@@ -85,3 +83,5 @@ Please attempt the questions before reviewing the answers below.
 - PowerShell transcripts reside on the WEF server share at `\\wef\pslogs`.
 - Use `admin@detectionlab.network` / `Fl33tpassword!`; TLS protects credentials and query results in transit.
 - Both `dc` and `wef` forward Sysmon. Confirm by checking the Splunk UF service status (`services.msc` or `Get-Service`) and verifying recent events in Splunk.
+
+

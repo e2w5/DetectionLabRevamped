@@ -27,7 +27,6 @@ This lab provides a guided tour of the Splunk Enterprise UI deployed on the logg
 3. Open **Apps -> Search & Reporting** to access the primary search workspace.
 4. Locate the **Dashboards** tabs and review existing content shipped with the lab.
 
-*Checkpoint:* Record where to access the Data Summary view and list which indexes appear most active.
 
 ## Exercise 2 - Validating Data Sources (Splunk 10)
 1. In the **Search** app start a new search window and run `| tstats count where index=* earliest=-15m latest=now by host`. Confirm `dc`, `wef`, `win11`, and `logger` report recent events.
@@ -36,7 +35,6 @@ This lab provides a guided tour of the Splunk Enterprise UI deployed on the logg
 4. Save the first search through **Actions -> Save As -> Report**, naming it "Last 15 Minutes Index Volume" and keeping sharing set to "This app".
 5. From the results, click **Visualize** and choose **Column** to review relative volume before returning to the search workspace.
 
-*Checkpoint:* List any indexes showing zero events in the last 15 minutes and note whether a data source or forwarder needs attention.
 
 ## Exercise 3 – Building Dashboards
 1. Run the search `index=sysmon | stats count by host, Image | sort - count limit=10` to view top processes.
@@ -44,7 +42,6 @@ This lab provides a guided tour of the Splunk Enterprise UI deployed on the logg
 3. Add a second panel using the search `index=osquery result=success | timechart count by host span=15m`.
 4. Open the dashboard and adjust visualization settings (table vs. chart) to highlight anomalies.
 
-*Checkpoint:* Capture a screenshot of the dashboard and store it with your lab notes.
 
 ## Exercise 4 – Fleet/osquery Review
 1. Visit Fleet at <https://192.168.57.105:8412> and authenticate (`admin@detectionlab.network` / `Fl33tpassword!`).
@@ -60,7 +57,6 @@ This exercise validates red-team tooling is ready while remaining safe. Run the 
 3. Monitor Splunk for new entries in `index=sysmon` where `Image=C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe` using `table _time, host, CommandLine`.
 4. Record observed event IDs and how they map to detection logic or alerting rules.
 
-*Checkpoint:* Re-enable Defender protections when finished if you disabled them.
 
 ## Exercise 6 – Windows Event Forwarding & Transcripts
 1. On `dc`, trigger a failed logon attempt by entering an incorrect password for a domain user.
@@ -98,4 +94,6 @@ This exercise validates red-team tooling is ready while remaining safe. Run the 
 4. Sourcetype `osquery:result`; Fleet queries surface in Splunk within `index=osquery` with host and query name fields.
 5. `index=sysmon host=win11 Image="*powershell.exe" | table _time, host, CommandLine` displays the atomic execution.
 6. PowerShell transcripts reside on the WEF share at `\\wef\pslogs`; forwarded attempts appear in `index=wineventlog` with the ForwardedEvents sourcetype.
+
+
 
