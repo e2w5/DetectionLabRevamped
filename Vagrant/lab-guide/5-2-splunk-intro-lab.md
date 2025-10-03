@@ -50,8 +50,8 @@ This lab provides a guided tour of the Splunk Enterprise UI deployed on the logg
 This exercise validates red-team tooling is ready while remaining safe. Run the commands from the `win11` VM after temporarily disabling Defender real-time protection if necessary.
 
 1. On `win11`, open an elevated PowerShell session.
-2. Execute `Invoke-AtomicTest T1059.001 -TestGuids a503bfe1-5a2a-4b15-8b49-8649f8651c5b -PathToAtomicsFolder C:\Tools\AtomicRedTeam\atomics -GetPrereqs` (Windows-supported GUID).
-   - If this GUID is unavailable, run `Get-AtomicTest T1059.001 | Where-Object { $_.supported_platforms -contains 'windows' }` to find an alternative Windows GUID and substitute it.
+2. Execute `Invoke-AtomicTest T1059.001 -TestNumbers 1 -PathToAtomicsFolder C:\Tools\AtomicRedTeam\atomics -GetPrereqs` (uses a Windows-supported atomic).
+   - If test #1 fails, run `Get-AtomicTest T1059.001 | Where-Object { $_.supported_platforms -contains 'windows' }` to list alternatives, then swap in a different test number (e.g., 2 or 3).
 3. Monitor Splunk for new entries in `index=sysmon` where `Image=C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe` using `table _time, host, CommandLine`.
 4. Record observed event IDs and how they map to detection logic or alerting rules.
 
