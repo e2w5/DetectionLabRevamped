@@ -52,7 +52,10 @@ Ensure the lab has been built via `vagrant up` and the VMs (`logger`, `dc`, `wef
 2. Confirm the indexes `wineventlog`, `sysmon`, and `osquery` exist via **Settings -> Indexes**.
 3. Run the search `index=sysmon sourcetype=XmlWinEventLog:Microsoft-Windows-Sysmon/Operational | stats count by host`.
 4. Export the search results (CSV) to confirm hosts `dc`, `wef`, and `win11` are reporting.
-5. Create a dashboard panel that tracks events per host over the last 60 minutes.
+5. Create a dashboard panel that tracks events per host over the last 60 minutes:
+   - In Splunk, stay in Search & Reporting and run `index=sysmon earliest=-60m latest=now | stats count by host`.
+   - Select **Save As -> Dashboard Panel**, choose an existing dashboard or create a new one (e.g., "Orientation Overview"), and name the panel "Events per Host (Last 60m)".
+   - Set visualization to a column chart (or preferred type), make sure the time range is set to **Last 60 minutes**, then save.
 
 
 ## Knowledge Check
@@ -83,5 +86,6 @@ Please attempt the questions before reviewing the answers below.
 - PowerShell transcripts reside on the WEF server share at `\\wef\pslogs`.
 - Use `admin@detectionlab.network` / `Fl33tpassword!`; TLS protects credentials and query results in transit.
 - Both `dc` and `wef` forward Sysmon. Confirm by checking the Splunk UF service status (`services.msc` or `Get-Service`) and verifying recent events in Splunk.
+
 
 
