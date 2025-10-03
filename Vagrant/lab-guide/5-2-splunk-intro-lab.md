@@ -36,29 +36,27 @@ This lab provides a guided tour of the Splunk Enterprise UI deployed on the logg
 5. From the results, click **Visualize** and choose **Column** to review relative volume before returning to the search workspace.
 
 
-## Exercise 3 – Building Dashboards
-1. Run the search `index=sysmon | stats count by host, Image | sort - count limit=10` to view top processes.
-2. Click **Save As -> Dashboard Panel**, create a new dashboard named "Blue Team Overview", and add the panel as a table.
-3. Add a second panel using the search `index=osquery result=success | timechart count by host span=15m`.
-4. Open the dashboard and adjust visualization settings (table vs. chart) to highlight anomalies.
-
-
-## Exercise 4 – Fleet/osquery Review
+## Exercise 3 - Fleet/osquery Review
 1. Visit Fleet at <https://192.168.57.105:8412> and authenticate (`admin@detectionlab.network` / `Fl33tpassword!`).
 2. Ensure all enrolled agents (`logger`, `dc`, `wef`, `win11`) show **Online**.
-3. Run a live query using the `processes` pack to list PowerShell processes across Windows hosts.
+3. Run a live query using the `processes` pack to list PowerShell processes across Windows hosts:
+   - In Fleet, click **Queries -> New live query** and choose the `processes` pack.
+   - Leave the default SQL or refine to `select * from processes where name like '%powershell%'` to focus on PowerShell activity.
+   - Target `dc`, `wef`, and `win11` (include `logger` if desired) and click **Run**.
+   - Review the results table for host, user, path, command line, and PID; export if you want a record.
 4. Schedule a query (e.g., listening ports) and confirm results arrive in Splunk with `index=osquery | stats count by host, name`.
 
-## Exercise 5 – Atomic Red Team Smoke Test
+## Exercise 4 - Atomic Red Team Smoke Test
 This exercise validates red-team tooling is ready while remaining safe. Run the commands from the `win11` VM after temporarily disabling Defender real-time protection if necessary.
 
 1. On `win11`, open an elevated PowerShell session.
-2. Execute `Invoke-AtomicTest T1059.001 -TestGuids 4f14f0c1-9f47-4a01-a513-9a9d2bb80bd0 -PathToAtomicsFolder C:\Tools\AtomicRedTeam\atomics`.
+2. Execute `Invoke-AtomicTest T1059.001 -TestGuids a503bfe1-5a2a-4b15-8b49-8649f8651c5b -PathToAtomicsFolder C:\Tools\AtomicRedTeam\atomics -GetPrereqs` (Windows-supported GUID).
+   - If this GUID is unavailable, run `Get-AtomicTest T1059.001 | Where-Object { $_.supported_platforms -contains 'windows' }` to find an alternative Windows GUID and substitute it.
 3. Monitor Splunk for new entries in `index=sysmon` where `Image=C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe` using `table _time, host, CommandLine`.
 4. Record observed event IDs and how they map to detection logic or alerting rules.
 
 
-## Exercise 6 – Windows Event Forwarding & Transcripts
+## Exercise 5 - Windows Event Forwarding & Transcripts
 1. On `dc`, trigger a failed logon attempt by entering an incorrect password for a domain user.
 2. On `wef`, open **Event Viewer -> Subscriptions** and confirm the event arrives in the **Forwarded Events** channel.
 3. In Splunk, search `index=wineventlog host=win11 OR host=dc sourcetype="WinEventLog:ForwardedEvents"` to verify the forwarded log.
@@ -94,6 +92,9 @@ This exercise validates red-team tooling is ready while remaining safe. Run the 
 4. Sourcetype `osquery:result`; Fleet queries surface in Splunk within `index=osquery` with host and query name fields.
 5. `index=sysmon host=win11 Image="*powershell.exe" | table _time, host, CommandLine` displays the atomic execution.
 6. PowerShell transcripts reside on the WEF share at `\\wef\pslogs`; forwarded attempts appear in `index=wineventlog` with the ForwardedEvents sourcetype.
+
+
+
 
 
 
