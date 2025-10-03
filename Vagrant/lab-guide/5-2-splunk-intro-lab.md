@@ -21,7 +21,7 @@ This lab provides a guided tour of the Splunk Enterprise UI deployed on the logg
   - Run `Disable-HyperV.bat` as Administrator from the cloned repository root.
   - Disable Windows Core Isolation / Memory Integrity (Windows Security -> Device Security -> Core isolation details).
 
-## Exercise 1 - Navigating Splunk Web – Navigating Splunk Web
+## Exercise 1 - Navigating Splunk Web â€“ Navigating Splunk Web
 1. Sign in to Splunk Web at <https://192.168.57.105:8000> with `admin:changeme`.
 2. Explore the **Home** page: note recent searches, dashboards, and data summaries.
 3. Open **Apps -> Search & Reporting** to access the primary search workspace.
@@ -50,9 +50,11 @@ This lab provides a guided tour of the Splunk Enterprise UI deployed on the logg
 This exercise validates red-team tooling is ready while remaining safe. Run the commands from the `win11` VM after temporarily disabling Defender real-time protection if necessary.
 
 1. On `win11`, open an elevated PowerShell session.
-2. Execute `Invoke-AtomicTest T1059.001 -TestNumbers 1 -PathToAtomicsFolder C:\Tools\AtomicRedTeam\atomics -GetPrereqs` (uses a Windows-supported atomic).
-   - If test #1 fails, run `Get-AtomicTest T1059.001 | Where-Object { $_.supported_platforms -contains 'windows' }` to list alternatives, then swap in a different test number (e.g., 2 or 3).
+2. Execute `Invoke-AtomicTest T1059.001 -TestNumbers 2 -PathToAtomicsFolder C:\Tools\AtomicRedTeam\atomics -GetPrereqs` (PowerShell EncodedCommand atomic).
+   - Seeing `No prereqs defined for test number 2` is expected; it simply means no additional setup is required.
+   - If test 2 produces no telemetry, run `Get-AtomicTest T1059.001 | Where-Object { $_.supported_platforms -contains 'windows' }` and try another Windows-supported test number (e.g., 3 or 5).
 3. Monitor Splunk for new entries in `index=sysmon` where `Image=C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe` using `table _time, host, CommandLine`.
+   - If you see no results immediately, expand the time range to Last 15 minutes and re-run the search.
 4. Record observed event IDs and how they map to detection logic or alerting rules.
 
 
