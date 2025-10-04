@@ -53,14 +53,16 @@ This exercise validates red-team tooling is ready while remaining safe. Run the 
 2. Execute `Invoke-AtomicTest T1059.001 -TestNumbers 2 -PathToAtomicsFolder C:\Tools\AtomicRedTeam\atomics -GetPrereqs` (PowerShell EncodedCommand atomic).
    - Seeing `No prereqs defined for test number 2` is expected; it simply means no additional setup is required.
    - If test 2 produces no telemetry, run `Get-AtomicTest T1059.001 | Where-Object { $_.supported_platforms -contains 'windows' }` and try another Windows-supported test number (e.g., 3 or 5).
-3. Monitor Splunk for new entries in `index=sysmon` where `Image=C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe` using `table _time, host, CommandLine`.
-   - If you see no results immediately, expand the time range to Last 15 minutes and re-run the search.
+3. In Splunk run `index=sysmon host=win11* earliest=-30m latest=now | spath input=_raw path="Event.EventData.Image" output=Image | spath input=_raw path="Event.EventData.CommandLine" output=CommandLine | spath input=_raw path="Event.EventData.ParentImage" output=ParentImage | search CommandLine="*Invoke-AtomicTest T1059.001*" | table _time host EventCode Image CommandLine ParentImage`.
+   - Even if some fields show `Unknown`, the command-line filter surfaces the Atomic execution; note `_time` and `EventCode` (1 for ProcessCreate).
 4. Record observed event IDs and how they map to detection logic or alerting rules.
 
 
 ## Exercise 5 - Windows Event Forwarding & Transcripts
 1. On `dc`, trigger a failed logon attempt by entering an incorrect password for a domain user.
 2. On `wef`, open **Event Viewer -> Subscriptions** and confirm the event arrives in the **Forwarded Events** channel.
+   - Launch `eventvwr.msc`, then expand **Applications and Services Logs -> Microsoft -> Windows -> EventCollector -> Subscriptions**.
+   - Ensure the subscription that pulls logs from `dc` shows **Status: Active** and has a non-zero event count.
 3. In Splunk, search `index=wineventlog host=win11 OR host=dc sourcetype="WinEventLog:ForwardedEvents"` to verify the forwarded log.
 4. Browse to `\\wef\pslogs` and ensure PowerShell transcripts from prior steps are present.
 

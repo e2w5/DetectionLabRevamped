@@ -61,7 +61,7 @@ try {
     $needsRestart = $true
   }
 } catch {
-  Write-Warning "Unable to add $serviceAccount to $eventLogGroup: $($_.Exception.Message)"
+  Write-Warning "Unable to add ${serviceAccount} to ${eventLogGroup}: $($_.Exception.Message)"
 }
 
 if ($needsRestart -and (Get-Service -Name splunkforwarder -ErrorAction SilentlyContinue)) {

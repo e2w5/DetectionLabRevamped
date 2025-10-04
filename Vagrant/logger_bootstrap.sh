@@ -224,7 +224,29 @@ PY
       /opt/splunk/bin/splunk add index evtx_attack_samples -auth 'admin:changeme'
       /opt/splunk/bin/splunk add index msexchange -auth 'admin:changeme'
       /opt/splunk/bin/splunk install app /vagrant/resources/splunk_forwarder/splunk-add-on-for-microsoft-windows_700.tgz -auth 'admin:changeme'
-      /opt/splunk/bin/splunk install app /vagrant/resources/splunk_server/splunk-add-on-for-microsoft-sysmon_1062.tgz -auth 'admin:changeme'
+      # Install the current Sysmon TA so XML fields are parsed on the indexer
+      if [ -d /opt/splunk/etc/apps/Splunk_TA_microsoft_sysmon ]; then
+        /opt/splunk/bin/splunk remove app Splunk_TA_microsoft_sysmon -auth 'admin:changeme' || true
+        rm -rf /opt/splunk/etc/apps/Splunk_TA_microsoft_sysmon
+      fi
+
+      SYS_TA_URL=${SPLUNK_SYS_MON_TA_URL:-"https://github.com/splunk/TA-microsoft-sysmon/archive/refs/heads/main.zip"}
+      SYS_TA_ZIP=/tmp/TA-microsoft-sysmon.zip
+      SYS_TA_TMP=/tmp/TA-microsoft-sysmon
+
+      rm -f "$SYS_TA_ZIP"
+      rm -rf "$SYS_TA_TMP"
+      curl -sSL "$SYS_TA_URL" -o "$SYS_TA_ZIP"
+      unzip -q "$SYS_TA_ZIP" -d /tmp
+      SYS_TA_SRC=$(find /tmp -maxdepth 1 -type d -name 'TA-microsoft-sysmon*' | head -n 1)
+      if [ -z "$SYS_TA_SRC" ]; then
+        echo "[splunk] Failed to download Sysmon TA from $SYS_TA_URL" >&2
+      else
+        mkdir -p "$SYS_TA_TMP"
+        cp -R "$SYS_TA_SRC"/* "$SYS_TA_TMP"
+        tar -C "$SYS_TA_TMP" -czf /tmp/TA-microsoft-sysmon.tgz .
+        /opt/splunk/bin/splunk install app /tmp/TA-microsoft-sysmon.tgz -auth 'admin:changeme' -update 1
+      fi
       /opt/splunk/bin/splunk install app /vagrant/resources/splunk_server/asn-lookup-generator_110.tgz -auth 'admin:changeme'
       /opt/splunk/bin/splunk install app /vagrant/resources/splunk_server/lookup-file-editor_331.tgz -auth 'admin:changeme'
       /opt/splunk/bin/splunk install app /vagrant/resources/splunk_server/splunk-add-on-for-zeek-aka-bro_400.tgz -auth 'admin:changeme'
