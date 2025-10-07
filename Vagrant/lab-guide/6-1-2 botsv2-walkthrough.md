@@ -9,6 +9,22 @@ Frothly is a craft beer startup that just asked you to dig into some suspicious 
 3. **SSH into the logger VM**: `vagrant ssh logger`. You will land in `/home/vagrant`.
 4. **Run the bundled BOTSv2 installer**: `sudo /vagrant/scripts/install-botsv2.sh`. The script installs the required Splunk apps and pulls down the attack-only BOTSv2 dataset into `/opt/splunk/etc/apps/`. Keep the terminal open until you see `BOTSv2 Installation complete!`.
 5. **Restart Splunk and verify the index**: `sudo /opt/splunk/bin/splunk restart`. After the restart, browse to `https://logger:8000` (or `https://127.0.0.1:8000` via port forwarding), log in with `admin/changeme`, and run `| eventcount summarize=false index=botsv2`. You should see roughly 16 million events when the ingestion finishes.
+6. **(Optional) Disable Palo Alto auto lookups if KV Store is unstable**:
+   `ash
+   cd /opt/splunk/etc/apps/Splunk_TA_paloalto
+   sudo mkdir -p local
+   cat <<'EOF' | sudo tee local/props.conf >/dev/null
+[pan:traffic]
+LOOKUP-minemeldfeeds_dest_lookup =
+LOOKUP-minemeldfeeds_src_lookup =
+
+[pan:threat]
+LOOKUP-minemeldfeeds_dest_lookup =
+LOOKUP-minemeldfeeds_src_lookup =
+EOF
+   sudo /opt/splunk/bin/splunk restart
+   `
+   This override keeps searches such as index=botsv2 sourcetype="pan:traffic" from failing when the KV Store is offline. Delete the file later (and restart Splunk) to restore the default lookup behaviour.
 
 ---
 
@@ -34,19 +50,8 @@ Frothly is a craft beer startup that just asked you to dig into some suspicious 
    - Record the secondary contact email address that Martin forwards to Amber.
    - Expand attachment metadata (e.g., `attach_filename{}`) to log the document Amber transmitted.
 
-3. **Decode exfil signals hidden in base64.**
-   With the same email events selected, copy the base64-encoded body and decode it using `| eval decoded=base64decode(your_field)` or CyberChef so you can document the personal dropbox address Amber used.
 
-4. **Verify anonymisation tooling.**
-   ```spl
-   index=botsv2 sourcetype="stream:http" amber "torbrowser"
-   ```
-   (Or search `amber tor install`). Inspect the download event and review the `file_name`, `uri`, or `http_user_agent` fields to confirm which Tor Browser version she retrieved.
-
-
-**Phase 1 Answers:** berkbeer.com, Martin Berk, hbernhard@berkbeer.com, Saccharomyces_cerevisiae_patent.docx, ambersthebest@yeastiebeastie.com, Tor Browser 7.0.4.
-
----
+**Phase 1 Answers:** berkbeer.com, Martin Berk, hbernhard@berkbeer.com, Saccharomyces_cerevisiae_patent.docx.
 
 ## Phase 2 - Breach at brewertalk.com
 **Goal:** Reconstruct the external compromise that weaponised Amber's access.
@@ -55,7 +60,7 @@ Frothly is a craft beer startup that just asked you to dig into some suspicious 
    ```spl
    index=botsv2 sourcetype="stream:dns" "brewertalk.com" | stats values(answer)
    ```
-   Use the `answer` field to document the public IP address brewertalk.com resolved to during the investigation window.
+   After the results populate, run `| stats count by answer` (or simply sort the table) to see how many unique DNS responses you captured. The most frequent IPv4 in the `answer` field is the live address brewertalk.com resolved to during the compromise - record that value and keep the search handy in case you need to watch for TTL or resolution changes later.
 
 2. **Spot the hostile scanner.**
    ```spl
@@ -175,3 +180,19 @@ Frothly is a craft beer startup that just asked you to dig into some suspicious 
 ---
 
 Use this condensed playbook as your field manual: each phase walks you from the investigative cue to the SPL to the verified answer without wading through every original BOTSv2 micro-question.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
