@@ -1,7 +1,7 @@
 # Lab 6-1-2: BOTSv2 Investigation Guide
 
 ## Story So Far
-Frothly is a craft beer startup that just asked you to dig into some suspicious activity. Amber Turing, the head brewer, has been sending odd emails to a rival called Berk Beer, the Taedonggang APT keeps getting mentioned, and the Frothly store has started to log strange orders. This guide walks you through the 2017 Boss of the SOC v2 investigation dataset so you can replay the incident, understand what happened, and answer the key questions without getting lost.
+Frothly is a craft beer startup that just asked you to dig into some suspicious activity. Amber Turing, the head brewer, has been sending odd emails to a rival called Berk Beer, the Taedonggang APT keeps getting mentioned, and the Frothly store has started to log strange orders. This guide walks you through the 2017 Boss of the SOC v2 investigation dataset so you can replay the incident, understand what happened, and answer the key questions without getting lost. The searches and answers below are adapted from Cyber Security Free Resource's blog post 'Cyberdefenders.org - Boss of the SOC v2 Walkthrough' (February 2022).
 
 ## Prepare the Lab
 1. **Open DetectionLabRevamped** on your host and move into the Vagrant folder: `cd DetectionLabRevamped/Vagrant`.
@@ -19,26 +19,30 @@ Frothly is a craft beer startup that just asked you to dig into some suspicious 
    ```spl
    index=botsv2 sourcetype="pan:traffic" amber
    ```
-   Note her workstation IP (`10.0.2.101`). Pivot to HTTP traffic:
+   In the field sidebar, note the `src_ip` value (Amber's workstation) and pivot into HTTP traffic:
    ```spl
-   index=botsv2 sourcetype="stream:http" src_ip=10.0.2.101 | dedup site | table site
+   index=botsv2 sourcetype="stream:http" src_ip=<Amber_IP> | dedup site | table site
    ```
-   -> Answer: Rival domain `berkbeer.com`.
+   Sort the `site` column, filter out routine services, and flag any rival brewery domains that appear.
+
 2. **Interrogate her email trail.**
    ```spl
    index=botsv2 sourcetype="stream:smtp" "aturing@froth.ly"
    ```
-   Review headers and body text to recover:
-   - CEO she contacted -> `Martin Berk`
-   - Secondary contact -> `hbernhard@berkbeer.com`
-   - Attached document -> `Saccharomyces_cerevisiae_patent.docx`
-3. **Decode exfil signals hidden in base64.** In the same events, copy the MIME part, decode with `| eval decoded=base64decode(field)` or an external tool to uncover Amber's personal drop:
-   -> `ambersthebest@yeastiebeastie.com`
+   Open the earliest thread with Berk Beer and:
+   - Capture the CEO's name from the signature block in the replies.
+   - Record the secondary contact email address that Martin forwards to Amber.
+   - Expand attachment metadata (e.g., `attach_filename{}`) to log the document Amber transmitted.
+
+3. **Decode exfil signals hidden in base64.**
+   With the same email events selected, copy the base64-encoded body and decode it using `| eval decoded=base64decode(your_field)` or CyberChef so you can document the personal dropbox address Amber used.
+
 4. **Verify anonymisation tooling.**
    ```spl
    index=botsv2 sourcetype="stream:http" amber "torbrowser"
    ```
-   or simply search `amber tor install` to spot the HTTP download log -> Version `7.0.4`.
+   (Or search `amber tor install`). Inspect the download event and review the `file_name`, `uri`, or `http_user_agent` fields to confirm which Tor Browser version she retrieved.
+
 
 **Phase 1 Answers:** berkbeer.com, Martin Berk, hbernhard@berkbeer.com, Saccharomyces_cerevisiae_patent.docx, ambersthebest@yeastiebeastie.com, Tor Browser 7.0.4.
 
@@ -51,22 +55,26 @@ Frothly is a craft beer startup that just asked you to dig into some suspicious 
    ```spl
    index=botsv2 sourcetype="stream:dns" "brewertalk.com" | stats values(answer)
    ```
-   -> Public IP `52.42.208.228`.
+   Use the `answer` field to document the public IP address brewertalk.com resolved to during the investigation window.
+
 2. **Spot the hostile scanner.**
    ```spl
-   index=botsv2 sourcetype="stream:http" dest_ip=52.42.208.228 | stats count by src_ip | sort -count
+   index=botsv2 sourcetype="stream:http" dest_ip=<brewertalk_IP> | stats count by src_ip | sort -count
    ```
-   -> Scanner IP `45.77.65.211` relentlessly probes `/member.php`.
+   The top source IP should align with automated probing; drill into a sample event to confirm which URI path it repeatedly targeted.
+
 3. **Confirm SQL injection.**
    ```spl
-   index=botsv2 dest_ip=52.42.208.228 uri_path="/member.php" | table _time src_ip form_data
+   index=botsv2 dest_ip=<brewertalk_IP> uri_path="/member.php" | table _time src_ip form_data
    ```
-   Payloads call the `updatexml` function. Extract credential dump rows to capture Frank Ester's salt `gGsxysZL`.
-4. **Decode the XSS lure.** Search the same HTTP stream for embedded `<script>` tags tied to user Kevin Lagerfield:
+   Inspect the `form_data` payloads to identify the SQL function being abused and capture the credential dump rows containing Frank Ester's salt value.
+
+4. **Decode the XSS lure.**
    ```spl
    index=botsv2 sourcetype="stream:http" "kevin" "<script>"
    ```
-   Unescape the payload to read the banner text "Daedong" and pull the stolen cookie's epoch value `1502408189`.
+   Unescape the injected script to read the banner text it displays and pull the stolen cookie's epoch value from the associated request headers.
+
 
 **Phase 2 Answers:** 52.42.208.228, 45.77.65.211, `/member.php`, `updatexml`, salt `gGsxysZL`, banner "Daedong", cookie value `1502408189`.
 
@@ -79,26 +87,26 @@ Frothly is a craft beer startup that just asked you to dig into some suspicious 
    ```spl
    index=botsv2 sourcetype="stream:http" "klagerfield" "admin"
    ```
-   Inspect `form_data` to capture the anti-CSRF token -> `1bc3eab741900ab25c98eee86bf20feb` and confirm the rogue account username `klagerfield`.
+   Examine `form_data` to capture the anti-CSRF token used and confirm the rogue `klagerfield` account that was added.
+
 2. **Timeline the encryption window.**
    ```spl
    index=botsv2 sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational" "ransom"
    ```
-   or pivot from file rename events on Kevin's host to read the precise start `14:50:22` and tally encrypted files via:
-   ```spl
-   ... | stats count by host
-   ```
-   -> 132 files hit.
+   Pivot into file rename events on Kevin's host, note the first timestamp when encryption starts, and use `stats count by host` (or `dc(TargetFilename)`) to measure how many files were touched.
+
 3. **Document USB staging details.**
    ```spl
    index=botsv2 sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational" "DeviceName" "USB"
    ```
-   -> Volume label `Alcor` mounted before encryption.
+   Review the `DeviceName` and `Volume` fields to record which removable media label appeared just before encryption began.
+
 4. **List command-and-control infrastructure.**
    ```spl
    index=botsv2 sourcetype="stream:dns" "eidk"
    ```
-   reveals `eidk.duckdns.org` and `eidk.hopto.org` as the sequential beacons.
+   Capture every hostname returned so you can enumerate the full set of C2 endpoints contacted during the attack.
+
 
 **Phase 3 Answers:** CSRF token `1bc3eab741900ab25c98eee86bf20feb`, account `klagerfield`, start `14:50:22`, 132 encrypted files, USB label `Alcor`, C2 hosts `eidk.duckdns.org` and `eidk.hopto.org`.
 
@@ -111,29 +119,40 @@ Frothly is a craft beer startup that just asked you to dig into some suspicious 
    ```spl
    index=botsv2 sourcetype="stream:smtp" "Malware Alert Text.txt"
    ```
-   Decode the base64 blob to recover `invoice.zip` and note the email's password hint (`912345678`). Extracting the payload shows an SSL certificate issued by `C = US`.
-2. **Correlate host alerts to shared infrastructure.** Incident review points to destination IP `160.153.91.7`; DNS logs map it to `hildegardsfarm.com`.
+   Decode the base64 blob to recover the ZIP, note the password hint embedded in the email body, and record the SSL issuer revealed once you inspect the extracted payload.
+
+2. **Correlate host alerts to shared infrastructure.**
+   Use the incident review dashboard or search:
+   ```spl
+   index=botsv2 sourcetype="stream:dns" <taedonggang_ip>
+   ```
+   to map the destination IP back to its domain and add it to your indicator list.
+
 3. **Trace the follow-on download.**
    ```spl
    index=botsv2 "winsys32.dll" | table process_name process_path
    ```
-   reveals FTP retrieval of the Korean document `I_Love_David.hwp` (original Hangul file name).
+   Follow the FTP `RETR` commands to identify the unusual document (including its Hangul filename) that was staged inside Frothly.
+
 4. **Decode scheduled task persistence.**
    ```spl
    index=botsv2 sourcetype="WinRegistry" "Taedonggang"
    ```
-   Extract the encoded PowerShell payload, decode with CyberChef, and identify the beaconed page `process.php`. Among the Taedonggang IPs, `104.238.159.19` is the outlier with a unique first octet.
+   Extract the encoded PowerShell payload, decode it with CyberChef, and note the web page it repeatedly calls as well as any C2 IPs that differ in their first octet.
+
 5. **Quantify the store exfiltration.**
    ```spl
    index=botsv2 sourcetype="stream:ftp" method=STOR "successfully transferred"
    ```
-   Parse the byte totals to sum the final upload -> `1394847505` bytes.
+   Parse the `reply_content` field to total the volume of data that successfully left the environment during the final exfiltration attempt.
+
 6. **Track fraudulent customer sessions.**
    ```spl
    index=botsv2 sourcetype="stream:http" "customer/account/loginPost"
    | rex field=cookie "form_key=(?<session>[^;]+)"
    ```
-   Filter to the first visit by `dberry398@mail.com` -> session `lwh9Ql7oUbnJUqxR`.
+   Filter to the first visit by `dberry398@mail.com`, decode the cookie string, and note the session identifier assigned on first login.
+
 7. **Identify high-value abuse patterns.**
    ```spl
    index=botsv2 sourcetype="stream:http" dest_content="grand_total"
@@ -141,19 +160,18 @@ Frothly is a craft beer startup that just asked you to dig into some suspicious 
    | where total >= 1000
    | stats values(form_data) by cookie
    ```
-   Counting unique users yields `7` distinct buyers. The profile edit URI `/magento2/customer/account/editPost/` ties the culprit email `bkildcare@yandex.com` to one such order.
+   Count the unique users placing orders over $1000 and pivot on `/magento2/customer/account/editPost/` to determine who edited their profile mid-session before purchasing.
+
 8. **Expose account automation artifacts.**
    ```spl
    index=botsv2 sourcetype="stream:http" "login[username]" "login[password]"
    | rex field=form_data "login\[username\]=(?<user>[^&]+)@(?<domain>[^&]+)"
    ```
-   Domain frequency shows disposable domain `elude.in`. Sorting successful coupon validations (HTTP PUT with `dest_content=true`) identifies the winning code `WINTER2017`. Grouping passwords highlights the shared string `HardwareBasedEasterEggs2017`. Referrer counts point to the product page `http://store.froth.ly/magento2/mens-frothly-tee.html`, and failed coupon spam all use the user agent `Mozilla/5.0 (Windows NT 6.333; Win64; x64) ... Safari/537.36`.
+   Use `stats` on `domain`, `pw`, `http_referrer`, and `http_user_agent` to spot burner email domains, the most successful coupon code, shared passwords across accounts, the top product page before checkout, and the user agent tied to failed coupon spamming.
+
 
 **Phase 4 Answers:** `invoice.zip`, SSL issuer `C = US`, IP `160.153.91.7`, domain `hildegardsfarm.com`, document `I_Love_David.hwp`, beacon page `process.php`, unique IP `104.238.159.19`, exfil bytes `1394847505`, session `lwh9Ql7oUbnJUqxR`, high-value buyers `7`, profile editor `bkildcare@yandex.com`, burner domain `elude.in`, coupon code `WINTER2017`, shared password `HardwareBasedEasterEggs2017`, top product `http://store.froth.ly/magento2/mens-frothly-tee.html`, fraudster user agent `Mozilla/5.0 (Windows NT 6.333; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Safari/537.36`.
 
 ---
-
-## Outstanding Gaps
-The 2022 blog could not validate Alexa ranking averages (original Q27), Mallory's decrypted photo caption (Q28), or the most common fraudulent shipping street (Q42). If you obtain the missing data sources, slot the findings into the relevant phases above.
 
 Use this condensed playbook as your field manual: each phase walks you from the investigative cue to the SPL to the verified answer without wading through every original BOTSv2 micro-question.
