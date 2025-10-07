@@ -2,13 +2,12 @@
 
 _Last update: 04/10/2025_
 
-This walkthrough helps new analysts explore the Splunk Boss of the SOC v2 **attack-only** dataset on the DetectionLabRevamped logger. The goal is to verify the dataset, tour the preinstalled content, and practise a few high-value hunts without getting bogged down in every storyline detail.
+This walkthrough helps new learners explore the Splunk Boss of the SOC v2 **attack-only** dataset on the DetectionLabRevamped logger. The goal is to verify the dataset, tour the preinstalled content, and practise a few high-value hunts without getting bogged down in every storyline detail.
 
 ## Prerequisites
 - Logger VM provisioned and accessible (`vagrant up logger`).
-- BOTS v2 attack dataset loaded by running `sudo ./scripts/install-botsv2.sh` inside the logger VM (reboot Splunk if prompted).
+- BOTS v2 attack dataset loaded by running `sudo bash install-botsv2.sh` inside the logger VM (reboot Splunk if prompted).
 - Splunk Web available at <https://192.168.57.105:8000> (`admin:changeme`).
-- Familiarity with basic SPL (`search`, `stats`, `table`).
 
 ## Quick Dataset Sanity Checks
 1. Log into Splunk Web and open **Settings → Indexes**. Confirm the BOTS indexes exist (`botsv2`, `botsv2_summary`, `botsv2_lookups`).
