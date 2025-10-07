@@ -10,7 +10,7 @@ Frothly is a craft beer startup that just asked you to dig into some suspicious 
 4. **Run the bundled BOTSv2 installer**: `sudo /vagrant/scripts/install-botsv2.sh`. The script installs the required Splunk apps and pulls down the attack-only BOTSv2 dataset into `/opt/splunk/etc/apps/`. Keep the terminal open until you see `BOTSv2 Installation complete!`.
 5. **Restart Splunk and verify the index**: `sudo /opt/splunk/bin/splunk restart`. After the restart, browse to `https://logger:8000` (or `https://127.0.0.1:8000` via port forwarding), log in with `admin/changeme`, and run `| eventcount summarize=false index=botsv2`. You should see roughly 16 million events when the ingestion finishes.
 6. **(Optional) Disable Palo Alto auto lookups if KV Store is unstable**:
-   `ash
+   `Bash
    cd /opt/splunk/etc/apps/Splunk_TA_paloalto
    sudo mkdir -p local
    cat <<'EOF' | sudo tee local/props.conf >/dev/null
@@ -29,7 +29,7 @@ EOF
 ---
 
 ## Phase 1 - Amber Turing's Insider Prep
-**Goal:** Prove Amber exfiltrated intellectual property and prepared covert browsing.
+**Goal:** Prove Amber exfiltrated intellectual property.
 
 1. **Profile Amber's browsing history.**
    ```spl
@@ -57,24 +57,30 @@ EOF
 **Goal:** Reconstruct the external compromise that weaponised Amber's access.
 
 1. **Locate infrastructure that touched the forum.**
+   Frothly runs its public customer forum on brewertalk.com; Amber follows competing breweries there and the adversary uses it as their first reconnaissance point. Mapping the DNS answers for that domain tells you which external hosts to monitor in the next steps.
    ```spl
-   index=botsv2 sourcetype="stream:dns" "brewertalk.com" | stats values(answer)
+   index=botsv2 sourcetype="stream:dns" "brewertalk.com"
+   | mvexpand host_addr{}
+   | stats values(host_addr{}) AS brewertalk_ips
    ```
-   After the results populate, run `| stats count by answer` (or simply sort the table) to see how many unique DNS responses you captured. The most frequent IPv4 in the `answer` field is the live address brewertalk.com resolved to during the compromise - record that value and keep the search handy in case you need to watch for TTL or resolution changes later.
+   In Splunk 10, the Stream DNS parser stores responses in the multi-value field `host_addr{}`. Expanding it exposes each returned IP so you can capture the forum's active infrastructure before pivoting into HTTP traffic.
 
 2. **Spot the hostile scanner.**
+   The firewall logs recorded a spray of probes against brewertalk.com; isolating the chattiest source IP confirms which infrastructure the adversary used for their initial sweep.
    ```spl
    index=botsv2 sourcetype="stream:http" dest_ip=<brewertalk_IP> | stats count by src_ip | sort -count
    ```
    The top source IP should align with automated probing; drill into a sample event to confirm which URI path it repeatedly targeted.
 
 3. **Confirm SQL injection.**
+   Once the scanner found a weak endpoint, the attacker moved into SQL injection; this step surfaces the payloads that dumped user data.
    ```spl
    index=botsv2 dest_ip=<brewertalk_IP> uri_path="/member.php" | table _time src_ip form_data
    ```
    Inspect the `form_data` payloads to identify the SQL function being abused and capture the credential dump rows containing Frank Ester's salt value.
 
 4. **Decode the XSS lure.**
+   After the SQL dump, the adversary planted cross-site scripting lures to harvest session cookies from forum users; decode the script to see what was stolen.
    ```spl
    index=botsv2 sourcetype="stream:http" "kevin" "<script>"
    ```
@@ -89,24 +95,28 @@ EOF
 **Goal:** Track the lateral movement and encryption activity triggered by the phishing chain.
 
 1. **Follow the forged admin creation.**
+   The forum breach let the attacker pivot into Frothly's environment and forge an admin request; capture the artefacts that prove that escalation.
    ```spl
    index=botsv2 sourcetype="stream:http" "klagerfield" "admin"
    ```
    Examine `form_data` to capture the anti-CSRF token used and confirm the rogue `klagerfield` account that was added.
 
 2. **Timeline the encryption window.**
+   Understanding when ransomware started encrypting files shows how quickly the attack unfolded and which hosts were hit first.
    ```spl
    index=botsv2 sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational" "ransom"
    ```
    Pivot into file rename events on Kevin's host, note the first timestamp when encryption starts, and use `stats count by host` (or `dc(TargetFilename)`) to measure how many files were touched.
 
 3. **Document USB staging details.**
+   The incident narrative mentions a suspicious thumb drive; confirm its presence right before encryption to tie physical media into the story.
    ```spl
    index=botsv2 sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational" "DeviceName" "USB"
    ```
    Review the `DeviceName` and `Volume` fields to record which removable media label appeared just before encryption began.
 
 4. **List command-and-control infrastructure.**
+   Every beacon from the compromised hosts reveals C2 endpoints you can block or hunt for elsewhere.
    ```spl
    index=botsv2 sourcetype="stream:dns" "eidk"
    ```
@@ -121,37 +131,42 @@ EOF
 **Goal:** Tie the phishing kit to Taedonggang infrastructure and expose the later retail fraud scheme.
 
 1. **Unpack the spearphish attachment.**
+   The Taedonggang campaign started with a malicious invoice; extracting it shows the payload and the social engineering hook.
    ```spl
    index=botsv2 sourcetype="stream:smtp" "Malware Alert Text.txt"
    ```
    Decode the base64 blob to recover the ZIP, note the password hint embedded in the email body, and record the SSL issuer revealed once you inspect the extracted payload.
 
 2. **Correlate host alerts to shared infrastructure.**
-   Use the incident review dashboard or search:
+   Multiple hosts fired on the same destination during the compromise; mapping those alerts ties the phishing attachment to outbound callbacks. Use the incident review dashboard or search:
    ```spl
    index=botsv2 sourcetype="stream:dns" <taedonggang_ip>
    ```
    to map the destination IP back to its domain and add it to your indicator list.
 
 3. **Trace the follow-on download.**
+   After initial access, the threat actor staged additional tooling?follow the FTP logs to see what landed on the endpoint.
    ```spl
    index=botsv2 "winsys32.dll" | table process_name process_path
    ```
    Follow the FTP `RETR` commands to identify the unusual document (including its Hangul filename) that was staged inside Frothly.
 
 4. **Decode scheduled task persistence.**
+   Taedonggang relies on scheduled tasks for persistence; decoding them uncovers the recurring beacon path.
    ```spl
    index=botsv2 sourcetype="WinRegistry" "Taedonggang"
    ```
    Extract the encoded PowerShell payload, decode it with CyberChef, and note the web page it repeatedly calls as well as any C2 IPs that differ in their first octet.
 
 5. **Quantify the store exfiltration.**
+   The adversary ultimately siphoned store data?sum the successful transfers to size the impact.
    ```spl
    index=botsv2 sourcetype="stream:ftp" method=STOR "successfully transferred"
    ```
    Parse the `reply_content` field to total the volume of data that successfully left the environment during the final exfiltration attempt.
 
 6. **Track fraudulent customer sessions.**
+   The fraud crew rode hijacked sessions to place orders; decoding the first session key ties the activity to a user.
    ```spl
    index=botsv2 sourcetype="stream:http" "customer/account/loginPost"
    | rex field=cookie "form_key=(?<session>[^;]+)"
@@ -159,6 +174,7 @@ EOF
    Filter to the first visit by `dberry398@mail.com`, decode the cookie string, and note the session identifier assigned on first login.
 
 7. **Identify high-value abuse patterns.**
+   High-dollar orders highlight which accounts the attacker monetised, and the profile edit pivot shows how they validated stolen identities.
    ```spl
    index=botsv2 sourcetype="stream:http" dest_content="grand_total"
    | rex "\"grand_total\":\"(?<total>\d+)"
@@ -168,6 +184,7 @@ EOF
    Count the unique users placing orders over $1000 and pivot on `/magento2/customer/account/editPost/` to determine who edited their profile mid-session before purchasing.
 
 8. **Expose account automation artifacts.**
+   Reviewing repeated login attempts exposes burner domains, shared passwords, and the tooling behind the coupon spray.
    ```spl
    index=botsv2 sourcetype="stream:http" "login[username]" "login[password]"
    | rex field=form_data "login\[username\]=(?<user>[^&]+)@(?<domain>[^&]+)"
