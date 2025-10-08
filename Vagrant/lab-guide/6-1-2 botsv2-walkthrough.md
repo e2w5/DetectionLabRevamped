@@ -56,30 +56,21 @@ EOF
 ## Phase 2 - Breach at brewertalk.com
 **Goal:** Reconstruct the external compromise that weaponised Amber's access.
 
-1. **Locate infrastructure that touched the forum.**
-   Frothly runs its public customer forum on brewertalk.com; Amber follows competing breweries there and the adversary uses it as their first reconnaissance point. Mapping the DNS answers for that domain tells you which external hosts to monitor in the next steps.
-   ```spl
-   index=botsv2 sourcetype="stream:dns" "brewertalk.com"
-   | mvexpand host_addr{}
-   | stats values(host_addr{}) AS brewertalk_ips
-   ```
-   In Splunk 10, the Stream DNS parser stores responses in the multi-value field `host_addr{}`. Expanding it exposes each returned IP so you can capture the forum's active infrastructure before pivoting into HTTP traffic.
-
-2. **Spot the hostile scanner.**
-   The firewall logs recorded a spray of probes against brewertalk.com; isolating the chattiest source IP confirms which infrastructure the adversary used for their initial sweep.
+1. **Spot the hostile scanner.**
+   Frothly runs its public customer forum on brewertalk.com; Amber follows competing breweries there and adversaries launch their reconnaissance from the same site. The firewall logs recorded a spray of probes against the forum, so isolating the chattiest source IP confirms which infrastructure the attacker used for the initial sweep. Plug in the forum IP you collected from DNS analysis (e.g., `52.42.208.228`).
    ```spl
    index=botsv2 sourcetype="stream:http" dest_ip=<brewertalk_IP> | stats count by src_ip | sort -count
    ```
    The top source IP should align with automated probing; drill into a sample event to confirm which URI path it repeatedly targeted.
 
-3. **Confirm SQL injection.**
-   Once the scanner found a weak endpoint, the attacker moved into SQL injection; this step surfaces the payloads that dumped user data.
+2. **Confirm SQL injection.**
+   Once the scanner found a weak endpoint, the attacker moved into SQL injection; this step surfaces the payloads that dumped user data. Scroll through the `_raw` or expand the `form_data` field: you should see `updatexml` calls that enumerate `mybb_users`. Keep each `form_data` block open so you can spot the row where `salt` is returned for Frank Ester and note the value.
    ```spl
    index=botsv2 dest_ip=<brewertalk_IP> uri_path="/member.php" | table _time src_ip form_data
    ```
    Inspect the `form_data` payloads to identify the SQL function being abused and capture the credential dump rows containing Frank Ester's salt value.
 
-4. **Decode the XSS lure.**
+3. **Decode the XSS lure.**
    After the SQL dump, the adversary planted cross-site scripting lures to harvest session cookies from forum users; decode the script to see what was stolen.
    ```spl
    index=botsv2 sourcetype="stream:http" "kevin" "<script>"
@@ -87,7 +78,7 @@ EOF
    Unescape the injected script to read the banner text it displays and pull the stolen cookie's epoch value from the associated request headers.
 
 
-**Phase 2 Answers:** 52.42.208.228, 45.77.65.211, `/member.php`, `updatexml`, salt `gGsxysZL`, banner "Daedong", cookie value `1502408189`.
+**Phase 2 Answers:** 45.77.65.211, `/member.php`, `updatexml`, salt `gGsxysZL`, banner "Daedong", cookie value `1502408189`.
 
 ---
 
