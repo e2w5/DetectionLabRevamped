@@ -21,7 +21,7 @@ This lab provides a guided tour of the Splunk Enterprise UI deployed on the logg
   - Run `Disable-HyperV.bat` as Administrator from the cloned repository root.
   - Disable Windows Core Isolation / Memory Integrity (Windows Security -> Device Security -> Core isolation details).
 
-## Exercise 1 - Navigating Splunk Web â€“ Navigating Splunk Web
+## Exercise 1 - Navigating Splunk Web
 1. Sign in to Splunk Web at <https://192.168.57.105:8000> with `admin:changeme`.
 2. Explore the **Home** page: note recent searches, dashboards, and data summaries.
 3. Open **Apps -> Search & Reporting** to access the primary search workspace.
@@ -36,43 +36,26 @@ This lab provides a guided tour of the Splunk Enterprise UI deployed on the logg
 5. From the results, click **Visualize** and choose **Column** to review relative volume before returning to the search workspace.
 
 
-## Exercise 3 - Fleet/osquery Review
-1. Visit Fleet at <https://192.168.57.105:8412> and authenticate (`admin@detectionlab.network` / `Fl33tpassword!`).
-2. Ensure all enrolled agents (`logger`, `dc`, `wef`, `win11`) show **Online**.
-3. Run a live query using the `processes` pack to list PowerShell processes across Windows hosts:
-   - In Fleet, click **Queries -> New live query** and choose the `processes` pack.
-   - Leave the default SQL or refine to `select * from processes where name like '%powershell%'` to focus on PowerShell activity.
-   - Target `dc`, `wef`, and `win11` (include `logger` if desired) and click **Run**.
-   - Review the results table for host, user, path, command line, and PID; export if you want a record.
-4. Schedule a query (e.g., listening ports) and confirm results arrive in Splunk with `index=osquery | stats count by host, name`.
+**Tip:** Splunk chains commands with the pipe character (`|`). Each pipe hands the current results to the next command, so you can stack transformations like filters, stats, and display helpers (`table`, `top`, `fields`, etc.).
 
-## Exercise 4 - Atomic Red Team Smoke Test
-This exercise validates red-team tooling is ready while remaining safe. Run the commands from the `win11` VM after temporarily disabling Defender real-time protection if necessary.
+## Exercise 3 - Simple Keyword Searches
+1. In **Search & Reporting**, set the time picker to **Last 4 hours**.
+2. Run `index=* error` and watch the timeline populate. Click a bar to filter to that time slice.
+3. Narrow the scope by host with `index=* error host=win11*` and observe how the results change.
+4. Add a second keyword using quotes: `index=* "failed login" host=dc` and note which sourcetypes report the message.
 
-1. On `win11`, open an elevated PowerShell session.
-2. Execute `Invoke-AtomicTest T1059.001 -TestNumbers 2 -PathToAtomicsFolder C:\Tools\AtomicRedTeam\atomics -GetPrereqs` (PowerShell EncodedCommand atomic).
-   - Seeing `No prereqs defined for test number 2` is expected; it simply means no additional setup is required.
-   - If test 2 produces no telemetry, run `Get-AtomicTest T1059.001 | Where-Object { $_.supported_platforms -contains 'windows' }` and try another Windows-supported test number (e.g., 3 or 5).
-3. In Splunk run `index=sysmon host=win11* earliest=-30m latest=now | spath input=_raw path="Event.EventData.Image" output=Image | spath input=_raw path="Event.EventData.CommandLine" output=CommandLine | spath input=_raw path="Event.EventData.ParentImage" output=ParentImage | search CommandLine="*Invoke-AtomicTest T1059.001*" | table _time host EventCode Image CommandLine ParentImage`.
-   - Even if some fields show `Unknown`, the command-line filter surfaces the Atomic execution; note `_time` and `EventCode` (1 for ProcessCreate).
-4. Record observed event IDs and how they map to detection logic or alerting rules.
-
-
-## Exercise 5 - Windows Event Forwarding & Transcripts
-1. On `dc`, trigger a failed logon attempt by entering an incorrect password for a domain user.
-2. On `wef`, open **Event Viewer -> Subscriptions** and confirm the event arrives in the **Forwarded Events** channel.
-   - Launch `eventvwr.msc`, then expand **Applications and Services Logs -> Microsoft -> Windows -> EventCollector -> Subscriptions**.
-   - Ensure the subscription that pulls logs from `dc` shows **Status: Active** and has a non-zero event count.
-3. In Splunk, search `index=wineventlog host=win11 OR host=dc sourcetype="WinEventLog:ForwardedEvents"` to verify the forwarded log.
-4. Browse to `\\wef\pslogs` and ensure PowerShell transcripts from prior steps are present.
+## Exercise 4 - Quick Counts
+1. With the time picker still at **Last 4 hours**, run `index=* | stats count by sourcetype | sort -count`.
+2. Identify the top few sourcetypes, then rerun the search as `index=* sourcetype=sysmon | stats count by host` to check which machines have Sysmon data.
+3. Try the `top` command: `index=* sourcetype=wineventlog:security | top limit=5 host` to list the busiest hosts for security logs.
+4. Use `fields` to tidy the output: append `| fields host, count` or `| fields - percent`. When you want to present only specific columns, pipe into `| table host count` to render a clean table.
 
 ## Knowledge Check
 1. Where do you find the Data Summary option in Splunk Web?
 2. Which index tracks Sysmon events and how can you confirm hosts are reporting?
 3. Describe how to save a search as a dashboard panel.
-4. Which sourcetype represents osquery results and how do Fleet queries appear in Splunk?
-5. After running an Atomic Red Team PowerShell test, which Splunk search confirms execution details?
-6. Where can you review PowerShell transcripts collected via Windows Event Forwarding?
+4. Which SPL command quickly lists the most common values for a field?
+5. What does the pipe symbol do in a Splunk search and which command turns the results into columns?
 
 ## Post-Lab Restoration
 - Re-enable VMware network adapters (Control Panel -> Network Connections -> enable each VMware Network Adapter VMnet*).
@@ -93,9 +76,8 @@ This exercise validates red-team tooling is ready while remaining safe. Run the 
 1. Inside **Search & Reporting -> Data Summary**.
 2. `index=sysmon`; run `index=sysmon | stats count by host` or review the Data Summary hosts view.
 3. After running a search, use **Save As -> Dashboard Panel**, choose a dashboard, and define visualization options.
-4. Sourcetype `osquery:result`; Fleet queries surface in Splunk within `index=osquery` with host and query name fields.
-5. `index=sysmon host=win11 Image="*powershell.exe" | table _time, host, CommandLine` displays the atomic execution.
-6. PowerShell transcripts reside on the WEF share at `\\wef\pslogs`; forwarded attempts appear in `index=wineventlog` with the ForwardedEvents sourcetype.
+4. The `top` command (for example, `| top limit=5 host`) shows the most frequent field values.
+5. The pipe (`|`) passes results to the next command; use `table` (for example, `| table host count`) to present selected fields as columns.
 
 
 
