@@ -97,35 +97,39 @@ Frothly is a craft beer startup that asked you to investigate a string of suspic
 
 ---
 
-## Phase 3 – Ransomware Detonation on Frothly Hosts
-**Goal:** Track lateral movement and encryption activity triggered by the phishing chain.
+## Phase 3 - Mallory's MacBook Ransomware Fallout
+**Goal:** Reconstruct how Kutekitten was encrypted, what artifacts were left behind, and where the payload attempts to call home.
 
-1. **Follow the forged admin creation.**
+1. **Confirm the encrypted deliverables.**
    ```spl
-   index=botsv2 sourcetype="stream:http" "klagerfield" "admin"
+   index="botsv2" host="MACLORY-AIR13" (*.ppt OR *.pptx OR *.pptm)
+   | sort 0 - _time
    ```
-   The forum breach let the attacker pivot inside Frothly and issue an admin creation request. Capture the `form_data` containing the anti-CSRF token and confirm the rogue `klagerfield` account. Note the requester IP, user agent, and timestamp—they tie back to the web infrastructure from Phase 2.
+   The query surfaces Mallory's PowerPoint activity; scrolling to August 18–19 highlights the renamed marketing deck. The `.crypt` extension on `Frothly_marketing_campaign_Q317.pptx.crypt` confirms the ransomware touched her critical presentation (Q301).
 
-2. **Timeline the encryption window.**
+2. **Prove the USB dropper's origin.**
    ```spl
-   index=botsv2 sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational" "ransom"
+   index="botsv2" kutekitten ("USB" OR "vendor_id")
+   | stats values(columns.vendor_id) AS vendor by host
    ```
-   Pivot into file-rename events on Kevin’s host, identify the earliest encryption timestamp, and calculate counts with `stats count by host` (or `dc(TargetFilename)`).
-   Compare these times with SOC alerts or EDR telemetry; any delay highlights detection gaps to document.
+   Sysmon and osquery telemetry around the initial compromise show Mallory mounting unfamiliar removable media. The returned vendor ID `058f` resolves to Alcor Micro Corp, identifying the likely thumb-drive brand Kevin used to stage the malware (Q303).
 
-3. **Document USB staging details.**
+3. **Extract the payload hash and enrich it.**
    ```spl
-   index=botsv2 sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational" "DeviceName" "USB"
+   index="botsv2" sourcetype="osquery_results" host=kutekitten columns.path="/Users/mkraeusen/Downloads/*"
+   | table _time columns.target_path columns.sha256
+   | dedup columns.target_path
    ```
-   The incident narrative references a suspicious thumb drive. Review `DeviceName` and `Volume` to confirm which device mounted right before encryption. Check whether the same device ID appears on other hosts to assess spread.
+   Focus on the urgent HR-themed download that launches the infection. Pivoting the SHA-256 value into VirusTotal (or an equivalent threat feed) reveals the sample `fpsaud`, lists Perl as the primary language (Q304), and notes the first-seen date of 2017-01-17 (Q305). Capture those enrichment details for the incident report.
 
-4. **List command-and-control infrastructure.**
+4. **Map out both dynamic DNS beacons.**
    ```spl
-   index=botsv2 sourcetype="stream:dns" "eidk"
+   index="botsv2" sourcetype="stream:dns" host=kutekitten "eidk"
+   | stats values(query) AS fqdn by src_ip
    ```
-   Each beacon reveals C2 hosts you can block or hunt for elsewhere. Enumerate all returned hostnames/IPs and enrich them with WHOIS or threat intelligence where possible.
+   The DNS telemetry enumerates the paired Taedonggang C2 domains in a single view: `eidk.duckdns.org` and `eidk.hopto.org`. Treat them as one indicator set because the malware alternates between the two destinations immediately after installation (Q306+Q307).
 
-**Phase 3 Answers:** CSRF token `1bc3eab741900ab25c98eee86bf20feb`, account `klagerfield`, encryption start `14:50:22`, 132 encrypted files, USB label `Alcor`, C2 hosts `eidk.duckdns.org` and `eidk.hopto.org`.
+**Phase 3 Answers:** `Frothly_marketing_campaign_Q317.pptx.crypt`; Alcor Micro Corp; Perl; 2017-01-17; C2 domains `eidk.duckdns.org` and `eidk.hopto.org`.
 
 ---
 
