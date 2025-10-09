@@ -7,20 +7,18 @@
 4. **Run the bundled BOTSv2 installer**: `sudo /vagrant/scripts/install-botsv2.sh`. The script installs required Splunk apps and downloads the attack-only BOTSv2 dataset into `/opt/splunk/etc/apps/`. Keep the terminal open until you see `BOTSv2 Installation complete!`.
 5. **Restart Splunk and verify ingestion**: `sudo /opt/splunk/bin/splunk restart`. After the restart, browse to `https://logger:8000` (or `https://127.0.0.1:8000` via port forwarding), log in with `admin/changeme`, and run `| eventcount summarize=false index=botsv2`. Roughly 16 million events confirm a successful import.
 6. **(Optional) Disable Palo Alto auto lookups when KV Store is unstable**:
-   `
-   cd /opt/splunk/etc/apps/Splunk_TA_paloalto
+   ```cd /opt/splunk/etc/apps/Splunk_TA_paloalto
    sudo mkdir -p local
    cat <<'EOF' | sudo tee local/props.conf >/dev/null
-[pan:traffic]
-LOOKUP-minemeldfeeds_dest_lookup =
-LOOKUP-minemeldfeeds_src_lookup =
+   [pan:traffic]
+   LOOKUP-minemeldfeeds_dest_lookup =
+   LOOKUP-minemeldfeeds_src_lookup =
 
-[pan:threat]
-LOOKUP-minemeldfeeds_dest_lookup =
-LOOKUP-minemeldfeeds_src_lookup =
-EOF
-   sudo /opt/splunk/bin/splunk restart
-   `
+   [pan:threat]
+   LOOKUP-minemeldfeeds_dest_lookup =
+   LOOKUP-minemeldfeeds_src_lookup =
+   EOF
+   sudo /opt/splunk/bin/splunk restart```
 
 This override keeps `index=botsv2 sourcetype="pan:traffic"` searches from failing when KV Store is offline. Delete the file later (and restart) to restore default lookups.
 
@@ -89,13 +87,13 @@ Frothly is a craft beer startup that asked you to investigate a string of suspic
    Inspect each `form_data` block for `salt` and record which usernames appear. This produces a list of exposed accounts for your breach assessment. Pair the salt with the hashed password in the same payload to reconstruct forum credentials—those logins are what the adversary later uses to plant client-side attacks.
 
 3. **Decode the XSS lure.**  
-   With credentials in hand, the adversary planted cross-site scripting to steal session cookies from forum users. They do this because a stolen cookie grants forum access even if passwords are reset; it provides a steady foothold for staging subsequent payloads. The injected `<script>` runs in each visitor's browser, calls `document.cookie`, and exfiltrates the stolen session back to the attacker's host. This lets the attacker reuse authenticated sessions without logging in, so capturing the script and stolen value is crucial for tracing their persistence.
+   With forum credentials in hand, the adversary planted cross-site scripting to steal session cookies from forum users. They do this because a stolen cookie grants access even if passwords are reset, letting them impersonate trusted users and preserve persistence. The injected `<script>` runs in each visitor's browser, calls `document.cookie`, and exfiltrates the stolen session back to the attacker's host. This lets the attacker reuse authenticated sessions without logging in, so capturing the script and stolen value is crucial for tracing their persistence.
    ```spl
    index=botsv2 sourcetype="stream:http" "kevin" "<script>"
    ```
-   Unescape the injected script to confirm the banner text ("Daedong"), then note how the code posts `document.cookie` to the attacker-controlled URL. Session cookies identify a user to MyBB; once the attacker replays Kevin's cookie, they impersonate him and deliver the malicious invoice that ultimately detonates ransomware on his workstation. Pair the stolen cookie with Kevin's session ID to show how the forum compromise set up the later endpoint breach.
+   Unescape the injected script to confirm the banner text ("Daedong"), then note how the code posts `document.cookie` to the attacker-controlled URL. Session cookies identify a user to MyBB; once the attacker replays Kevin's cookie, they can act as him inside the forum, replay the anti-CSRF token, and create the rogue `klagerfield` admin account that ultimately hosts the malicious invoice Kevin downloads. Pair the stolen cookie with Kevin's session ID to show how the forum compromise set up the later endpoint breach.
 
-**Phase 2 Answers:** hostile IP `45.77.65.211`, URI `/member.php`, SQL function `updatexml`, salt `gGsxysZL`, XSS output “Daedong”, cookie value `1502408189`.
+**Phase 2 Answers:** hostile IP `45.77.65.211`, URI `/member.php`, SQL function `updatexml`, salt `gGsxysZL`, cookie value `1502408189`.
 
 ---
 
@@ -130,6 +128,8 @@ Frothly is a craft beer startup that asked you to investigate a string of suspic
 **Phase 3 Answers:** CSRF token `1bc3eab741900ab25c98eee86bf20feb`, account `klagerfield`, encryption start `14:50:22`, 132 encrypted files, USB label `Alcor`, C2 hosts `eidk.duckdns.org` and `eidk.hopto.org`.
 
 ---
+
+
 
 
 
