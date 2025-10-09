@@ -35,14 +35,13 @@ This lab provides a guided tour of the Splunk Enterprise UI deployed on the logg
 4. Save the first search through **Actions -> Save As -> Report**, naming it "Last 15 Minutes Index Volume" and keeping sharing set to "This app".
 5. From the results, click **Visualize** and choose **Column** to review relative volume before returning to the search workspace.
 
-
-**Tip:** Splunk chains commands with the pipe character (`|`). Each pipe hands the current results to the next command, so you can stack transformations like filters, stats, and display helpers (`table`, `top`, `fields`, etc.).
-
 ## Exercise 3 - Simple Keyword Searches
 1. In **Search & Reporting**, set the time picker to **Last 4 hours**.
 2. Run `index=* error` and watch the timeline populate. Click a bar to filter to that time slice.
 3. Narrow the scope by host with `index=* error host=win11*` and observe how the results change.
 4. Add a second keyword using quotes: `index=* "failed login" host=dc` and note which sourcetypes report the message.
+
+**Tip:** Splunk chains commands with the pipe character (`|`). Each pipe hands the current results to the next command, so you can stack transformations like filters, stats, and display helpers (`table`, `top`, `fields`, etc.).
 
 ## Exercise 4 - Quick Counts
 1. With the time picker still at **Last 4 hours**, run `index=* | stats count by sourcetype | sort -count`.
