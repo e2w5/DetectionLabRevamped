@@ -39,7 +39,8 @@ Ensure the lab has been built via `vagrant up` and the VMs (`logger`, `dc`, `wef
 6. Install Vagrant (download from https://developer.hashicorp.com/vagrant/downloads and run the installer).
    - Change into the Vagrant directory: `cd DetectionLabRevamped/Vagrant`
    - Install the reload plugin with `vagrant plugin install vagrant-reload`.
-   - `$env:VAGRANT_DEFAULT_PROVIDER = "virtualbox"`
+   - Install virtual box
+   - Run `$env:VAGRANT_DEFAULT_PROVIDER = "virtualbox"`
    - Run `vagrant up` from within the Vagrant directory.
 7. From the host OS, open a terminal and run `vagrant status` to confirm all VMs report `running`.
 8. Use `vagrant winrm dc -c "hostname"` and repeat for `wef` and `win11` to verify WinRM reachability.
