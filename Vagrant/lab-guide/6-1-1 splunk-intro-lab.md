@@ -47,7 +47,7 @@ This lab provides a guided tour of the Splunk Enterprise UI deployed on the logg
 
 1. With the time picker still at **Last 4 hours**, run `index=* | stats count by sourcetype | sort -count`.
 2. Identify the top few sourcetypes, then rerun the search as `index=* sourcetype=zeek | stats count by host` to check which machines have Sysmon data.
-3. Try the `top` command: `index=* sourcetype=zeek | top limit=5 host` to list the busiest hosts for security logs.
+3. Try the `top` command: `index=* | top limit=5 host` to list the busiest hosts for security logs.
 4. Use `fields` to tidy the output: append `| fields host, count` or `| fields - percent`. When you want to present only specific columns, pipe into `| table host count` to render a clean table.
 
 ## Knowledge Check

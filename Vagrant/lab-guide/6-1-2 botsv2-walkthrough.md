@@ -23,6 +23,16 @@
    ```
 
 This override keeps `index=botsv2 sourcetype="pan:traffic"` searches from failing when KV Store is offline. Delete the file later (and restart) to restore default lookups.
+7. If you encouter a minium diks error, try this fix.
+
+   ```
+sudo tee /opt/splunk/etc/system/local/server.conf >/dev/null <<'EOF'
+[diskUsage]
+minFreeSpace = 1500
+EOF
+sudo /opt/splunk/bin/splunk restart
+   ```
+
 
 ---
 
