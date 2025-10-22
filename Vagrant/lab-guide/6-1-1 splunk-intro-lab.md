@@ -41,9 +41,10 @@ This lab provides a guided tour of the Splunk Enterprise UI deployed on the logg
 3. Narrow the scope by host with `index=* error host=win11*` and observe how the results change.
 4. Add a second keyword using quotes: `index=* "failed login" host=dc` and note which sourcetypes report the message.
 
+## Exercise 4 - Quick Counts
+
 **Tip:** Splunk chains commands with the pipe character (`|`). Each pipe hands the current results to the next command, so you can stack transformations like filters, stats, and display helpers (`table`, `top`, `fields`, etc.).
 
-## Exercise 4 - Quick Counts
 1. With the time picker still at **Last 4 hours**, run `index=* | stats count by sourcetype | sort -count`.
 2. Identify the top few sourcetypes, then rerun the search as `index=* sourcetype=sysmon | stats count by host` to check which machines have Sysmon data.
 3. Try the `top` command: `index=* sourcetype=wineventlog:security | top limit=5 host` to list the busiest hosts for security logs.
