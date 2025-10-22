@@ -60,10 +60,9 @@ Ensure the lab has been built via `vagrant up` and the VMs (`logger`, `dc`, `wef
 
 
 ## Knowledge Check
-1. Which host runs Splunk Enterprise and Fleet, and what is its IP address?
+1. Which host runs Splunk Enterprise, and what is its IP address?
 2. Where can you find PowerShell transcript logs generated across the domain?
-3. What credential pair grants access to the Fleet UI, and why is TLS important for this interface?
-4. Name two Windows hosts that forward Sysmon data and explain how to confirm the forwarder service is healthy.
+3. Name two Windows hosts that forward Sysmon data and explain how to confirm the forwarder service is healthy.
 
 Please attempt the questions before reviewing the answers below.
 
@@ -83,9 +82,8 @@ Please attempt the questions before reviewing the answers below.
 <br />
 
 ## Answer Key
-- `logger` at 192.168.57.105 hosts both Splunk Enterprise and Fleet.
+- `logger` at 192.168.57.105 hosts Splunk Enterprise.
 - PowerShell transcripts reside on the WEF server share at `\\wef\pslogs`.
-- Use `admin@detectionlab.network` / `Fl33tpassword!`; TLS protects credentials and query results in transit.
 - Both `dc` and `wef` forward Sysmon. Confirm by checking the Splunk UF service status (`services.msc` or `Get-Service`) and verifying recent events in Splunk.
 
 
