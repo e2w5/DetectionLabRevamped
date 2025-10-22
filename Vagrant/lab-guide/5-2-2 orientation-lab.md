@@ -51,7 +51,7 @@ Ensure the lab has been built via `vagrant up` and the VMs (`logger`, `dc`, `wef
 ## Exercise 2 - Splunk Telemetry Validation
 1. Log into Splunk at <https://192.168.57.105:8000> (`admin:changeme`).
 2. Confirm the indexes `wineventlog`, `sysmon`, and `osquery` exist via **Settings -> Indexes**.
-3. Run the search `index=sysmon sourcetype=XmlWinEventLog:Microsoft-Windows-Sysmon/Operational | stats count by host`.
+3. Run the search `index=* | stats count by host`.
 4. Export the search results (CSV) to confirm hosts `dc`, `wef`, and `win11` are reporting.
 5. Create a dashboard panel that tracks events per host over the last 60 minutes:
    - In Splunk, stay in Search & Reporting and run `index=sysmon earliest=-60m latest=now | stats count by host`.

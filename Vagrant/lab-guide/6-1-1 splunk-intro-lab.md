@@ -31,7 +31,7 @@ This lab provides a guided tour of the Splunk Enterprise UI deployed on the logg
 ## Exercise 2 - Validating Data Sources (Splunk 10)
 1. In the **Search** app start a new search window and run `| tstats count where index=* earliest=-15m latest=now by host`. Confirm `dc`, `wef`, `win11`, and `logger` report recent events.
 2. Run `index=* earliest=-15m latest=now | stats count by sourcetype` to verify Sysmon, Windows Event Logs, osquery results (`osquery:result`), Zeek, and Suricata are arriving. Use the time picker if you need a different window.
-3. Validate osquery ingestion with `index=osquery earliest=-15m latest=now | stats count by host, name` and confirm the Fleet query names you expect.
+3. Validate osquery ingestion with `index=osquery earliest=-15m latest=now | stats count by host, name`.
 4. Save the first search through **Actions -> Save As -> Report**, naming it "Last 15 Minutes Index Volume" and keeping sharing set to "This app".
 5. From the results, click **Visualize** and choose **Column** to review relative volume before returning to the search workspace.
 
