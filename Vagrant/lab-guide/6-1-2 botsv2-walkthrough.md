@@ -5,7 +5,7 @@
 2. **Start the Splunk server VM** (named `logger`) if it is not already running: `vagrant up logger`. This boots the Splunk Enterprise instance shipped with DetectionLab.
 3. **SSH into the logger VM**: `vagrant ssh logger` or use the VM terminal. You will land in `/home/vagrant`.
 4. **Run the bundled BOTSv2 installer**: `sudo /vagrant/scripts/install-botsv2.sh`. The script installs required Splunk apps and downloads the attack-only BOTSv2 dataset into `/opt/splunk/etc/apps/`. Keep the terminal open until you see `BOTSv2 Installation complete!`.
-5. **Restart Splunk and verify ingestion**: `sudo /opt/splunk/bin/splunk restart`. After the restart, browse to `https://logger:8000` (or `https://127.0.0.1:8000` via port forwarding), log in with `admin/changeme`, and run `| eventcount summarize=false index=botsv2`. You should see millions of events confirm a successful import.
+5. **Restart Splunk and verify ingestion**: `sudo /opt/splunk/bin/splunk restart`. After the restart, run `| eventcount summarize=false index=botsv2`. You should see millions of events confirm a successful import.
 6. **(Optional) Disable Palo Alto auto lookups when KV Store is unstable**:
    ```
    cd /opt/splunk/etc/apps/Splunk_TA_paloalto
@@ -24,7 +24,7 @@
 
 This override keeps `index=botsv2 sourcetype="pan:traffic"` searches from failing when KV Store is offline. Delete the file later (and restart) to restore default lookups.
 
-7. **If you encouter a minium diks error, try this fix.**
+7. **If you encouter a minium diks error, try this fix.**:
    ```
 sudo tee /opt/splunk/etc/system/local/server.conf >/dev/null <<'EOF'
 [diskUsage]
