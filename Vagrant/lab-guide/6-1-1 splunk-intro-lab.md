@@ -39,7 +39,7 @@ This lab provides a guided tour of the Splunk Enterprise UI deployed on the logg
 1. In **Search & Reporting**, set the time picker to **Last 4 hours**.
 2. Run `index=* error` and watch the timeline populate. Click a bar to filter to that time slice.
 3. Narrow the scope by host with `index=* error host=win11*` and observe how the results change.
-4. Add a second keyword using quotes: `index=* "failed login" host=dc` and note which sourcetypes report the message.
+4. Using quotes: `index=* "login" host=dc` and note which sourcetypes report the message. Expand the time ticker if no results.
 
 ## Exercise 4 - Quick Counts
 
