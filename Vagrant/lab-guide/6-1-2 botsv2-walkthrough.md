@@ -26,11 +26,11 @@ This override keeps `index=botsv2 sourcetype="pan:traffic"` searches from failin
 
 7. **If you encouter a minium diks error, try this fix.**:
    ```
-sudo tee /opt/splunk/etc/system/local/server.conf >/dev/null <<'EOF'
-[diskUsage]
-minFreeSpace = 1500
-EOF
-sudo /opt/splunk/bin/splunk restart
+   sudo tee /opt/splunk/etc/system/local/server.conf >/dev/null <<'EOF'
+   [diskUsage]
+   minFreeSpace = 1500
+   EOF
+   sudo /opt/splunk/bin/splunk restart
    ```
 
 
