@@ -1,4 +1,4 @@
-#! /usr/bin/env bash
+#!/usr/bin/env bash
 
 # Thanks to @MHaggis for this addition!
 # It is recommended to only uncomment the attack-only dataset comment block.
