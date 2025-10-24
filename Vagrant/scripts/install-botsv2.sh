@@ -1,4 +1,14 @@
 #!/usr/bin/env bash
+# Normalize Windows CRLF line endings if the file was synced from a Windows host.
+if file "$0" 2>/dev/null | grep -q "CRLF"; then
+  if command -v dos2unix >/dev/null 2>&1; then
+    dos2unix "$0" >/dev/null 2>&1
+    exec "$0" "$@"
+  else
+    echo "This script uses Windows line endings. Install dos2unix and rerun: sudo dos2unix \"$0\"" >&2
+    exit 1
+  fi
+fi
 
 # Thanks to @MHaggis for this addition!
 # It is recommended to only uncomment the attack-only dataset comment block.
