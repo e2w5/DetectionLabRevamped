@@ -141,8 +141,7 @@ Frothly is a craft beer startup that asked you to investigate a string of suspic
    We can search through the sourcetype osquery_results which will likely contain information on the actions and files assocaited with Mallory's host machine. OSquery can be thought of as something akin to Windows Sysmon but is cross-OS platform and is based around a SQL-like/relational database structure. For the purposes of using OSquery in a SIEM like Splunk, we'll just need to know that it's useful for security monitoring and event logging.
 
    ```spl
-   index="botsv2" sourcetype="osquery_results" host=kutekitten columns.path="/Users*"
-|  table columns.path
+   index="botsv2" sourcetype="osquery_results" host=kutekitten columns.path="/Users*" table columns.path
    ```
    ```spl
    index="botsv2" sourcetype="osquery_results" host=kutekitten "\\/Users\\/mkraeusen*"
