@@ -42,8 +42,14 @@ Ensure the lab has been built via `vagrant up` and the VMs (`logger`, `dc`, `wef
    - Install VirtualBox.
    - Run `$env:VAGRANT_DEFAULT_PROVIDER = "virtualbox"`
    - Run `vagrant up` from within the Vagrant directory.
+7. From the host OS, open a terminal and run `vagrant status` to confirm all VMs report `running`.
+8. Use `vagrant winrm dc -c "hostname"` and repeat for `wef` and `win11` to verify WinRM reachability.
+9. SSH to the logger machine by running `vagrant ssh logger`.
+10. Launch an RDP connection or use the VirtualBox console to access `win11` and confirm you can log on as `vagrant\\vagrant`.
 
-### Troubleshooting - `VBoxManage.exe` is not in PATH
+## Troubleshooting Build Errors
+
+### `VBoxManage.exe` is not in PATH
 If Vagrant cannot find `VBoxManage.exe`, VirtualBox is installed but its install directory is not available in the terminal PATH.
 
 Fix it in PowerShell:
@@ -70,7 +76,7 @@ cd D:\Users\cueh\DetectionLabRevamped\Vagrant
 vagrant up logger
 ```
 
-### Troubleshooting - `bento/ubuntu-24.04` box provider error
+### `bento/ubuntu-24.04` box provider error
 If `vagrant up logger` fails because `bento/ubuntu-24.04` is being requested with provider `virtualbox`, register the local logger box manually.
 
 From the Vagrant directory, run:
@@ -87,7 +93,7 @@ If `..\Boxes\logger.box` does not exist, copy the VM box files from the lab mirr
 robocopy "D:\Mirror\VM\Intrusion response" "D:\Users\cueh\DetectionLabRevamped\Boxes" /E /COPY:DAT /R:3 /W:5 /V /ETA
 ```
 
-### Troubleshooting - VirtualBox host-only adapter error
+### VirtualBox host-only adapter error
 If `vagrant up`, `vagrant up logger`, or `vagrant up dc` fails with the error below, VirtualBox is installed but its host-only networking driver is missing or only partially registered:
 
 ```text
@@ -98,7 +104,7 @@ VBoxManage.exe: error: Details: code E_FAIL (0x80004005)
 
 Fix it from an Administrator PowerShell prompt:
 
-1. Install the VirtualBox network drivers:
+- Install the VirtualBox network drivers:
 
    ```powershell
    & "C:\Program Files\Oracle\VirtualBox\VBoxDrvInst.exe" install --inf-file "C:\Program Files\Oracle\VirtualBox\drivers\network\netlwf\VBoxNetLwf.inf"
@@ -107,7 +113,7 @@ Fix it from an Administrator PowerShell prompt:
 
    If the command returns `VERR_ACCESS_DENIED`, close the terminal, reopen PowerShell with **Run as Administrator**, and run the commands again. Approve the Windows UAC prompt if one appears.
 
-2. Verify the drivers and host-only adapter:
+- Verify the drivers and host-only adapter:
 
    ```powershell
    pnputil /enum-drivers | Select-String -Pattern "vboxnetlwf|vboxnetadp6" -Context 2
@@ -115,13 +121,13 @@ Fix it from an Administrator PowerShell prompt:
    VBoxManage list hostonlyifs
    ```
 
-3. If no host-only adapter exists, create one manually:
+- If no host-only adapter exists, create one manually:
 
    ```powershell
    VBoxManage hostonlyif create
    ```
 
-4. Retry the lab build:
+- Retry the lab build:
 
    ```powershell
    cd D:\Users\cueh\DetectionLabRevamped\Vagrant
@@ -129,11 +135,6 @@ Fix it from an Administrator PowerShell prompt:
    ```
 
 The expected DetectionLab host-only network is `192.168.57.0/24`; after the fix, VirtualBox should show an adapter such as `VirtualBox Host-Only Ethernet Adapter #2` with IP `192.168.57.1`.
-
-7. From the host OS, open a terminal and run `vagrant status` to confirm all VMs report `running`.
-8. Use `vagrant winrm dc -c "hostname"` and repeat for `wef` and `win11` to verify WinRM reachability.
-9. SSH to the logger machine by running `vagrant ssh logger`.
-10. Launch an RDP connection or use the VirtualBox console to access `win11` and confirm you can log on as `vagrant\\vagrant`.
 
 
 ## Exercise 2 - Splunk Telemetry Validation
