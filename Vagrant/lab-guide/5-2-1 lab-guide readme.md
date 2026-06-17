@@ -34,7 +34,7 @@ _Last update: 22/09/2025_
 - Host resources: >=55 GB free disk, >=16 GB RAM, virtualization enabled.
 - Software: VirtualBox 7.1.12, Vagrant 2.2.2+, Packer (optional), Git; disable unused hypervisor adapters (e.g. Hyper-V vSwitch) on Windows Pro.
 - Recommended plugin: `vagrant-reload`.
-## Build Steps
+## Build Steps for home computers
 1. `git clone https://github.com/e2w5/DetectionLabRevamped.git`
 2. `cd DetectionLabRevamped/Vagrant`
 3. `vagrant up` (or `vagrant up logger`, `vagrant up dc`, `vagrant up wef`, `vagrant up win11`).
