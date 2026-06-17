@@ -43,6 +43,50 @@ Ensure the lab has been built via `vagrant up` and the VMs (`logger`, `dc`, `wef
    - Run `$env:VAGRANT_DEFAULT_PROVIDER = "virtualbox"`
    - Run `vagrant up` from within the Vagrant directory.
 
+### Troubleshooting - `VBoxManage.exe` is not in PATH
+If Vagrant cannot find `VBoxManage.exe`, VirtualBox is installed but its install directory is not available in the terminal PATH.
+
+Fix it in PowerShell:
+
+```powershell
+$env:Path += ";C:\Program Files\Oracle\VirtualBox"
+VBoxManage --version
+```
+
+If that works, add it to the user PATH permanently and open a new terminal:
+
+```powershell
+[Environment]::SetEnvironmentVariable(
+  "Path",
+  [Environment]::GetEnvironmentVariable("Path", "User") + ";C:\Program Files\Oracle\VirtualBox",
+  "User"
+)
+```
+
+Then retry from the Vagrant directory:
+
+```powershell
+cd D:\Users\cueh\DetectionLabRevamped\Vagrant
+vagrant up logger
+```
+
+### Troubleshooting - `bento/ubuntu-24.04` box provider error
+If `vagrant up logger` fails because `bento/ubuntu-24.04` is being requested with provider `virtualbox`, register the local logger box manually.
+
+From the Vagrant directory, run:
+
+```powershell
+cd D:\Users\cueh\DetectionLabRevamped\Vagrant
+vagrant box add bento/ubuntu-24.04 ..\Boxes\logger.box --provider virtualbox --force
+vagrant up logger
+```
+
+If `..\Boxes\logger.box` does not exist, copy the VM box files from the lab mirror again:
+
+```powershell
+robocopy "D:\Mirror\VM\Intrusion response" "D:\Users\cueh\DetectionLabRevamped\Boxes" /E /COPY:DAT /R:3 /W:5 /V /ETA
+```
+
 ### Troubleshooting - VirtualBox host-only adapter error
 If `vagrant up`, `vagrant up logger`, or `vagrant up dc` fails with the error below, VirtualBox is installed but its host-only networking driver is missing or only partially registered:
 
