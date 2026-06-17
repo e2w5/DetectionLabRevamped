@@ -54,19 +54,28 @@ if (Test-Path $inputsFile) {
 Import-Module Microsoft.PowerShell.LocalAccounts -ErrorAction SilentlyContinue
 $eventLogGroup = 'Event Log Readers'
 $serviceAccount = 'NT SERVICE\SplunkForwarder'
-try {
-  if (-not (Get-LocalGroupMember -Group $eventLogGroup -Member $serviceAccount -ErrorAction SilentlyContinue)) {
-    Write-Host ("[{0:HH:mm}] Granting $serviceAccount rights to read event logs" -f (Get-Date))
-    Add-LocalGroupMember -Group $eventLogGroup -Member $serviceAccount -ErrorAction Stop
-    $needsRestart = $true
+$localGroupCmd = Get-Command Get-LocalGroup -ErrorAction SilentlyContinue
+if ($localGroupCmd -and (Get-LocalGroup -Name $eventLogGroup -ErrorAction SilentlyContinue)) {
+  try {
+    if (-not (Get-LocalGroupMember -Group $eventLogGroup -Member $serviceAccount -ErrorAction SilentlyContinue)) {
+      Write-Host ("[{0:HH:mm}] Granting $serviceAccount rights to read event logs" -f (Get-Date))
+      Add-LocalGroupMember -Group $eventLogGroup -Member $serviceAccount -ErrorAction Stop
+      $needsRestart = $true
+    }
+  } catch {
+    Write-Warning "Unable to add ${serviceAccount} to ${eventLogGroup}: $($_.Exception.Message)"
   }
-} catch {
-  Write-Warning "Unable to add ${serviceAccount} to ${eventLogGroup}: $($_.Exception.Message)"
+} else {
+  Write-Host ("[{0:HH:mm}] Event Log Readers group is not available on this host; continuing." -f (Get-Date))
 }
 
 if ($needsRestart -and (Get-Service -Name splunkforwarder -ErrorAction SilentlyContinue)) {
   Write-Host ("[{0:HH:mm}] Restarting Splunk Universal Forwarder to apply configuration" -f (Get-Date))
-  Restart-Service splunkforwarder -Force
+  try {
+    Restart-Service splunkforwarder -Force -ErrorAction Stop
+  } catch {
+    Write-Warning "Unable to restart SplunkForwarder cleanly: $($_.Exception.Message)"
+  }
   Start-Sleep -Seconds 5
 }
 
@@ -76,7 +85,7 @@ if (-not $service) {
 }
 if ($service.Status -ne 'Running') {
   Write-Host ("[{0:HH:mm}] Starting Splunk Universal Forwarder service" -f (Get-Date))
-  Start-Service splunkforwarder
+  Start-Service splunkforwarder -ErrorAction Stop
   Start-Sleep -Seconds 5
   $service = Get-Service -Name splunkforwarder
   if ($service.Status -ne 'Running') {
