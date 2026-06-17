@@ -1,6 +1,6 @@
 # DetectionLabRevamped Orientation Lab
 
-_Last update: 23/09/2025_
+_Last update: 17/06/2026_
 
 This guided lab walks you through the core systems, telemetry, and tooling shipped with the DetectionLabRevamped VirtualBox fork. Complete the exercises to become comfortable navigating each host, validating data flows, and running basic red-team simulations.
 
@@ -39,9 +39,53 @@ Ensure the lab has been built via `vagrant up` and the VMs (`logger`, `dc`, `wef
 6. Install Vagrant (download from https://developer.hashicorp.com/vagrant/downloads and run the installer).
    - Change into the Vagrant directory: `cd DetectionLabRevamped/Vagrant`
    - Install the reload plugin with `vagrant plugin install vagrant-reload`.
-   - Install virtual box
+   - Install VirtualBox.
    - Run `$env:VAGRANT_DEFAULT_PROVIDER = "virtualbox"`
    - Run `vagrant up` from within the Vagrant directory.
+
+### Troubleshooting - VirtualBox host-only adapter error
+If `vagrant up`, `vagrant up logger`, or `vagrant up dc` fails with the error below, VirtualBox is installed but its host-only networking driver is missing or only partially registered:
+
+```text
+VBoxManage.exe: error: Failed to create the host-only adapter
+VBoxManage.exe: error: Could not find Host Interface Networking driver! Please reinstall
+VBoxManage.exe: error: Details: code E_FAIL (0x80004005)
+```
+
+Fix it from an Administrator PowerShell prompt:
+
+1. Install the VirtualBox network drivers:
+
+   ```powershell
+   & "C:\Program Files\Oracle\VirtualBox\VBoxDrvInst.exe" install --inf-file "C:\Program Files\Oracle\VirtualBox\drivers\network\netlwf\VBoxNetLwf.inf"
+   & "C:\Program Files\Oracle\VirtualBox\VBoxDrvInst.exe" install --inf-file "C:\Program Files\Oracle\VirtualBox\drivers\network\netadp6\VBoxNetAdp6.inf"
+   ```
+
+   If the command returns `VERR_ACCESS_DENIED`, close the terminal, reopen PowerShell with **Run as Administrator**, and run the commands again. Approve the Windows UAC prompt if one appears.
+
+2. Verify the drivers and host-only adapter:
+
+   ```powershell
+   pnputil /enum-drivers | Select-String -Pattern "vboxnetlwf|vboxnetadp6" -Context 2
+   sc.exe query VBoxNetLwf
+   VBoxManage list hostonlyifs
+   ```
+
+3. If no host-only adapter exists, create one manually:
+
+   ```powershell
+   VBoxManage hostonlyif create
+   ```
+
+4. Retry the lab build:
+
+   ```powershell
+   cd D:\Users\cueh\DetectionLabRevamped\Vagrant
+   vagrant up logger
+   ```
+
+The expected DetectionLab host-only network is `192.168.57.0/24`; after the fix, VirtualBox should show an adapter such as `VirtualBox Host-Only Ethernet Adapter #2` with IP `192.168.57.1`.
+
 7. From the host OS, open a terminal and run `vagrant status` to confirm all VMs report `running`.
 8. Use `vagrant winrm dc -c "hostname"` and repeat for `wef` and `win11` to verify WinRM reachability.
 9. SSH to the logger machine by running `vagrant ssh logger`.
