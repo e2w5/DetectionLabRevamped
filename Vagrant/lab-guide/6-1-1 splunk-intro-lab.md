@@ -1,4 +1,4 @@
-# Lab 5-2: Splunk Web Interface Introduction
+# Lab 6-1-1: Splunk Web Interface Introduction
 
 _Last update: 23/09/2025_
 
